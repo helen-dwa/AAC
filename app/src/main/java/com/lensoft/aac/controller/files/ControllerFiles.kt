@@ -1,0 +1,187 @@
+package com.lensoft.aac.controller.files
+
+import android.content.ContentValues
+import android.content.Context
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
+import androidx.annotation.RequiresApi
+import com.lensoft.aac.controller.Util
+import java.io.File
+
+class ControllerFiles(private val context: Context) {
+    fun createFolderIfNotExist(parentPath: String?, folderName: String) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            // Android 10+ (Scoped Storage)
+            val parent = parentPath
+                ?: Environment.DIRECTORY_PICTURES + "/"
+
+            createFolderIfNotExistAndroid10Plus(parent, folderName)
+
+        } else {
+            // Android 5.0 – Android 9 (absolute path)
+            val basePictures = Environment.getExternalStoragePublicDirectory(
+                Environment.DIRECTORY_PICTURES
+            ).absolutePath
+
+            val parent = parentPath ?: basePictures
+            val base = if (parent.endsWith("/")) parent else "$parent/"
+
+            createFolderIfNotExistAndroid5to9(base, folderName.trim('/'))
+        }
+    }
+
+    // ===== private ======
+    @RequiresApi(Build.VERSION_CODES.Q)
+    private fun createFolderIfNotExistAndroid10Plus(
+        parentPath: String,
+        folderName: String
+    ) {
+        val tag = "AAC_Folder"
+
+        val base = if (parentPath.endsWith("/")) parentPath else "$parentPath/"
+        val relativePath = base + folderName.trim('/') + "/"
+
+        Util.printDebugLog( "createFolderIfNotExistAndroid10Plus()")
+        Util.printDebugLog("parentPath='$parentPath'")
+        Util.printDebugLog( "folderName='$folderName'")
+        Util.printDebugLog( "base='$base'")
+        Util.printDebugLog( "relativePath='$relativePath'")
+
+        // Sanity check: RELATIVE_PATH must not start with "/" and should end with "/"
+        if (relativePath.startsWith("/")) {
+            Util.printDebugLog( "❌ INVALID relativePath starts with '/': '$relativePath'")
+            return
+        }
+        if (!relativePath.endsWith("/")) {
+            Util.printDebugLog( "❌ INVALID relativePath does not end with '/': '$relativePath'")
+            return
+        }
+
+        val resolver = context.contentResolver
+
+        // 1) Check if any image already exists in that RELATIVE_PATH
+        val projection = arrayOf(
+            MediaStore.Images.Media._ID,
+            MediaStore.Images.Media.DISPLAY_NAME,
+            MediaStore.Images.Media.RELATIVE_PATH
+        )
+        val selection = "${MediaStore.Images.Media.RELATIVE_PATH}=?"
+        val selectionArgs = arrayOf(relativePath)
+
+        try {
+            resolver.query(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                projection,
+                selection,
+                selectionArgs,
+                null
+            )?.use { cursor ->
+                Util.printDebugLog( "query count=${cursor.count} for RELATIVE_PATH='$relativePath'")
+                if (cursor.moveToFirst()) {
+                    val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID))
+                    val name = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME))
+                    val rp = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Images.Media.RELATIVE_PATH))
+                    Util.printDebugLog( "✅ Folder seems to exist (found item): id=$id name='$name' relativePath='$rp'")
+                    return
+                }
+            } ?: run {
+                Util.printDebugLog( "query returned null cursor (provider issue?)")
+            }
+        } catch (t: Throwable) {
+            Util.printDebugLog( "❌ query failed: ${t.javaClass.simpleName}: ${t.message}")
+            // Keep going to try create anyway
+        }
+
+        // 2) Insert a dummy item to force directory creation
+        val displayName = ".nomedia_${System.currentTimeMillis()}.jpg" // unique so insert won't conflict
+        val values = ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, displayName)
+            put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+            put(MediaStore.Images.Media.RELATIVE_PATH, relativePath)
+            put(MediaStore.Images.Media.IS_PENDING, 1)
+        }
+
+        Util.printDebugLog( "inserting dummy: displayName='$displayName', RELATIVE_PATH='$relativePath'")
+
+        val uri = try {
+            resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+        } catch (t: Throwable) {
+            Util.printDebugLog( "❌ insert failed: ${t.javaClass.simpleName}: ${t.message}")
+            null
+        }
+
+        if (uri == null) {
+            Util.printDebugLog( "❌ insert returned null URI (no permission? invalid RELATIVE_PATH? provider rejected?)")
+            return
+        }
+
+        Util.printDebugLog( "✅ insert ok uri=$uri")
+
+        // Optional: actually open the item once (some devices behave better if you write 0 bytes)
+        try {
+            resolver.openOutputStream(uri, "w")?.use { os ->
+                // write nothing; just open/close
+            }
+            Util.printDebugLog("openOutputStream ok (0 bytes)")
+        } catch (t: Throwable) {
+            Util.printDebugLog( "❌ openOutputStream failed: ${t.javaClass.simpleName}: ${t.message}")
+        }
+
+        // 3) Mark not pending
+        try {
+            val updated = resolver.update(uri, ContentValues().apply {
+                put(MediaStore.Images.Media.IS_PENDING, 0)
+            }, null, null)
+            Util.printDebugLog("update IS_PENDING=0 -> updatedRows=$updated")
+        } catch (t: Throwable) {
+            Util.printDebugLog( "❌ update failed: ${t.javaClass.simpleName}: ${t.message}")
+        }
+
+        // 4) Re-check by querying again
+        try {
+            resolver.query(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                arrayOf(MediaStore.Images.Media._ID),
+                selection,
+                selectionArgs,
+                null
+            )?.use { cursor ->
+                Util.printDebugLog("recheck query count=${cursor.count} for RELATIVE_PATH='$relativePath'")
+            }
+        } catch (t: Throwable) {
+            Util.printDebugLog( "❌ recheck query failed: ${t.javaClass.simpleName}: ${t.message}")
+        }
+    }
+
+    private fun createFolderIfNotExistAndroid5to9(parentPath: String, folderName: String) {
+        val mainFolder = File(parentPath, folderName)
+
+        // If something exists but it's not a directory, remove it
+        if (mainFolder.exists() && !mainFolder.isDirectory) {
+            mainFolder.delete()
+        }
+
+        if (!mainFolder.exists()) {
+            mainFolder.mkdirs()
+        }
+
+        // Create a tiny placeholder image
+        val imageFile = File(mainFolder, "placeholder.jpg")
+        if (!imageFile.exists()) {
+            // Minimal valid JPEG (SOI + EOI)
+            imageFile.writeBytes(byteArrayOf(
+                0xFF.toByte(), 0xD8.toByte(), // SOI
+                0xFF.toByte(), 0xD9.toByte()  // EOI
+            ))
+        }
+
+        // Force media scan so Windows MTP can see it
+        android.media.MediaScannerConnection.scanFile(
+            context,
+            arrayOf(imageFile.absolutePath),
+            arrayOf("image/jpeg"),
+            null
+        )
+    }
+}
