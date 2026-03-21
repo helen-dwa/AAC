@@ -35,7 +35,7 @@ class ControllerHtml {
             """.trimIndent()
             )
 
-            for (aacFile in folder.fileList) {
+            for (aacFile in folder.fileList.sortedBy { it.nameWithExt.lowercase() }) {
                 val file = File(Util.rootDir, aacFile.pathRelativeToMainFolder)
                 if (!file.exists() || !file.isFile) continue
 

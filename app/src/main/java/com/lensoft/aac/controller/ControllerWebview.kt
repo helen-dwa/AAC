@@ -1,5 +1,6 @@
 package com.lensoft.aac.controller
 
+import android.content.Context
 import android.graphics.Color
 import android.os.Build
 import android.view.ScaleGestureDetector
@@ -12,6 +13,12 @@ import java.io.File
 import java.util.Locale
 
 class ControllerWebview {
+    companion object {
+        private const val PREFS_NAME = "webview_prefs"
+        private const val PREF_CONTENT_ZOOM = "content_zoom"
+        private const val DEFAULT_CONTENT_ZOOM = 1f
+    }
+
     private lateinit var webView: WebView
     private var lastViewportScale = 1f
     private var contentZoom = 1f
@@ -19,14 +26,18 @@ class ControllerWebview {
 
     fun init(web_View: WebView) {
         webView = web_View
-        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.JELLY_BEAN) {
+        contentZoom = loadSavedZoom()
+        //if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.JELLY_BEAN) {
             // Old WebView often starts over-zoomed; match the density users get after manual pinch-out.
-            contentZoom = 0.85f
-        }
+        //    contentZoom = contentZoom.coerceAtMost(0.85f)
+        //}
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
-                applyCardZoom(contentZoom)
+                webView.postDelayed({
+                    //Util.printDebugLog("applying zoom = " + contentZoom)
+                    applyCardZoom(contentZoom)
+                }, 200)
             }
         }
         webView.settings.javaScriptEnabled = true
@@ -49,6 +60,11 @@ class ControllerWebview {
                 contentZoom = (contentZoom * factor).coerceIn(0.5f, 5f)
                 applyCardZoom(contentZoom)
                 return true
+            }
+
+            override fun onScaleEnd(detector: ScaleGestureDetector) {
+                super.onScaleEnd(detector)
+                saveZoom(contentZoom)
             }
         })
 
@@ -137,11 +153,27 @@ class ControllerWebview {
             }
             if (kotlin.math.abs(safeScale - lastViewportScale) < 0.01f) return
             lastViewportScale = safeScale
+            contentZoom = safeScale
+            saveZoom(safeScale)
 
             webView.post {
                 applyCardZoom(safeScale)
             }
         }
+    }
+
+    private fun loadSavedZoom(): Float {
+        val prefs = webView.context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val savedScale = prefs.getFloat(PREF_CONTENT_ZOOM, DEFAULT_CONTENT_ZOOM)
+        return savedScale.coerceIn(0.5f, 5f)
+    }
+
+    private fun saveZoom(scale: Float) {
+        webView.context
+            .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putFloat(PREF_CONTENT_ZOOM, scale.coerceIn(0.5f, 5f))
+            .apply()
     }
 
     private fun applyCardZoom(scale: Float) {
