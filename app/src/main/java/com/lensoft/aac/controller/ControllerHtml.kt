@@ -1,9 +1,16 @@
 package com.lensoft.aac.controller
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Rect
 import android.util.Base64
 import com.lensoft.aac.R
+import com.lensoft.aac.model.AacFile
 import com.lensoft.aac.model.AacFolder
+import java.io.ByteArrayOutputStream
 import java.io.File
 
 class ControllerHtml {
@@ -66,7 +73,7 @@ class ControllerHtml {
             val file = File(Util.rootDir, aacFolder.pathRelativeToMainFolder)
             if (!file.exists() || file.isFile) continue
 
-            val bytes = context.resources.openRawResource(R.drawable.folder).use { it.readBytes() }
+            val bytes = buildFolderPreviewBytes(context, aacFolder)
             val b64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
             val mime = "image/png"
 
@@ -80,7 +87,7 @@ class ControllerHtml {
 
             sb.append(
                 """
-                <div class="card">
+                <div class="cardfolder">
                   <img class="thumb"
                        src="data:$mime;base64,$b64"
                        data-path="$safePath"
@@ -129,7 +136,7 @@ class ControllerHtml {
 
     private fun makeHtmlOfBackArrow(context: Context, parentFolder: AacFolder, sb: StringBuilder) {
         val folderName = parentFolder.getDisplayName()
-        val backBytes = context.resources.openRawResource(R.drawable.arrow_back).use { it.readBytes() }
+        val backBytes = readDrawablePngBytes(context, R.drawable.arrow_back)
         val backB64 = Base64.encodeToString(backBytes, Base64.NO_WRAP)
         val safeFolderName = escapeHtml(folderName)
 
@@ -156,5 +163,49 @@ class ControllerHtml {
 
     private fun readAssetText(context: Context, assetPath: String): String {
         return context.assets.open(assetPath).bufferedReader(Charsets.UTF_8).use { it.readText() }
+    }
+
+    private fun readDrawablePngBytes(context: Context, resId: Int): ByteArray {
+        val bitmap = BitmapFactory.decodeResource(context.resources, resId)
+            ?: error("Unable to decode drawable resource: $resId")
+        return bitmapToPngBytes(bitmap)
+    }
+
+    private fun buildFolderPreviewBytes(context: Context, aacFolder: AacFolder): ByteArray {
+        val folderBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.folder)
+            ?: error("Unable to decode drawable resource: ${R.drawable.folder}")
+
+        val previewBitmap = findFolderPreviewBitmap(aacFolder)
+            ?: return bitmapToPngBytes(folderBitmap)
+
+        val resultBitmap = folderBitmap.copy(Bitmap.Config.ARGB_8888, true)
+        val overlaySizePx = (resultBitmap.height * 0.5f).toInt()
+        val left = ((resultBitmap.width - overlaySizePx) / 2f).toInt()
+        val top = ((resultBitmap.height - overlaySizePx) / 2f).toInt()
+        val targetRect = Rect(left, top, left + overlaySizePx, top + overlaySizePx)
+
+        Canvas(resultBitmap).drawBitmap(previewBitmap, null, targetRect, Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
+        return bitmapToPngBytes(resultBitmap)
+    }
+
+    private fun findFolderPreviewBitmap(aacFolder: AacFolder): Bitmap? {
+        val previewFile = aacFolder.fileList
+            .sortedBy { it.nameWithExt.lowercase() }
+            .firstNotNullOfOrNull { aacFile -> decodePreviewBitmap(aacFile) }
+        return previewFile
+    }
+
+    private fun decodePreviewBitmap(aacFile: AacFile): Bitmap? {
+        val file = File(Util.rootDir, aacFile.pathRelativeToMainFolder)
+        if (!file.exists() || !file.isFile || file.nameWithoutExtension.startsWith("_.")) return null
+        if (file.extension.lowercase() !in setOf("png", "jpg", "jpeg", "webp", "gif")) return null
+        return BitmapFactory.decodeFile(file.absolutePath)
+    }
+
+    private fun bitmapToPngBytes(bitmap: Bitmap): ByteArray {
+        return ByteArrayOutputStream().use { output ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
+            output.toByteArray()
+        }
     }
 }
