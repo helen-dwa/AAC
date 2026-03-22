@@ -77,7 +77,7 @@ class ControllerWebview {
         webView.addJavascriptInterface(WebAppBridge(), "Android")
 
         // Green behind the page
-        webView.setBackgroundColor(Color.GREEN)
+        //webView.setBackgroundColor(Color.GREEN)
 
         val html = """
     <!doctype html>
@@ -90,7 +90,7 @@ class ControllerWebview {
       </style>
     </head>
     <body>
-      <div class="page">TEST</div>
+      <div class="page"></div>
     </body>
     </html>
 """.trimIndent()
