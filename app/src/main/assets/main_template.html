@@ -19,6 +19,24 @@
 
         .section { margin: 16px 0 22px 0; }
         .folder-title { font-size: 16px; font-weight: 700; margin: 0 0 10px 0; }
+        .folder-header {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin: 0 0 14px 0;
+        }
+        .button-arrow-back {
+          width: 50px;
+          height: 50px;
+          cursor: pointer;
+          flex: 0 0 50px;
+        }
+        .current-folder-name {
+          font-size: 24px;
+          font-weight: 700;
+          color: #111;
+          line-height: 1.2;
+        }
 
         .row {
           font-size: 0;
@@ -89,6 +107,12 @@
           var path = el.getAttribute('data-path') || '';
           if (window.Android && Android.onImageClick) {
             Android.onImageClick(path);
+          }
+        }
+
+        function onBackClicked() {
+          if (window.Android && Android.onBackClick) {
+            Android.onBackClick();
           }
         }
 

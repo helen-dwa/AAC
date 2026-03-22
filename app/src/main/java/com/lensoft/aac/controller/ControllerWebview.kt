@@ -23,6 +23,7 @@ class ControllerWebview {
     private var lastViewportScale = 1f
     private var contentZoom = 1f
     private lateinit var scaleDetector: ScaleGestureDetector
+    private lateinit var controllerMain: ControllerMain
 
     fun init(web_View: WebView) {
         webView = web_View
@@ -100,6 +101,7 @@ class ControllerWebview {
     fun displayPecs(controllerMain: ControllerMain) {
         //val images = controllerMain.getImagesListSorted()
         //val html = ControllerHtml().buildHtmlInline(images)
+        this.controllerMain = controllerMain
         val html = controllerMain.makeHtml()
         //ControllerHtml().buildHtmlInline(controllerMain.mainFolder)
         webView.loadDataWithBaseURL(
@@ -110,6 +112,7 @@ class ControllerWebview {
             /* historyUrl = */ null
         )
     }
+
     private inner class WebAppBridge {
 
         @JavascriptInterface
@@ -119,12 +122,18 @@ class ControllerWebview {
                 // /storage/emulated/0/Pictures/MyAac/cat.png
 
                 val file = File(absolutePath)
-                if (file.exists() && file.isFile) {
-
-                    // filename without extension (handles names like "my.photo.v1.png")
-                    val speakText = file.nameWithoutExtension
-
-                    ControllerTts.speak(speakText)
+                if (file.exists()) {
+                    if(file.isFile) {
+                        // filename without extension (handles names like "my.photo.v1.png")
+                        val speakText = file.nameWithoutExtension
+                        ControllerTts.speak(speakText)
+                    }
+                    else { // go to folder
+                        if(controllerMain != null) {
+                            controllerMain.setCurrentlyShownFolder(absolutePath)
+                            displayPecs(controllerMain)
+                        }
+                    }
                 }
 
                 /*if (file.exists()) {
@@ -140,6 +149,14 @@ class ControllerWebview {
                     // - open full-screen preview
                     // - play sound
                 }*/
+            }
+        }
+
+        @JavascriptInterface
+        fun onBackClick() {
+            webView.post {
+                controllerMain.showParentOfCurrentlyShownFolder()
+                displayPecs(controllerMain)
             }
         }
 

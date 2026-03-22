@@ -2,6 +2,7 @@ package com.lensoft.aac.controller
 
 import android.content.Context
 import android.util.Base64
+import com.lensoft.aac.R
 import com.lensoft.aac.model.AacFolder
 import java.io.File
 
@@ -11,16 +12,112 @@ class ControllerHtml {
         return context.assets.open(assetPath).bufferedReader(Charsets.UTF_8).use { it.readText() }
     }
 
-    fun buildHtmlFromTemplate(context: Context, mainFolder: AacFolder): String {
+    fun buildHtmlFromTemplate(context: Context, aacFolder: AacFolder): String {
         val template = readAssetText(context, "main_template.html")
 
-        val content = buildGalleryContent(mainFolder)
+        val content = buildGalleryContent(context, aacFolder)
 
         // simple placeholder replace
         return template.replace("{{CONTENT}}", content)
     }
 
-    private fun buildGalleryContent(mainFolder: AacFolder): String {
+    private fun buildGalleryContent(context: Context, aacFolder: AacFolder): String {
+        if(aacFolder.pathRelativeToMainFolder.isEmpty()) {
+            return buildGalleryContentOfRoot(context, aacFolder)
+        }
+        else {
+            val sb = StringBuilder()
+
+            val folderName = aacFolder.getDisplayName()
+            val backBytes = context.resources.openRawResource(R.drawable.arrow_back).use { it.readBytes() }
+            val backB64 = Base64.encodeToString(backBytes, Base64.NO_WRAP)
+            val safeFolderName = escapeHtml(folderName)
+
+            sb.append(
+                """
+            <div class="section">
+              <div class="folder-header">
+                <img class="button-arrow-back"
+                     src="data:image/png;base64,$backB64"
+                     alt="Back"
+                     onclick="onBackClicked()" />
+                <div class="current-folder-name">$safeFolderName</div>
+              </div>
+              <div class="row">
+            """.trimIndent()
+            )
+
+            // folders
+            for (aacDir in aacFolder.folderList.sortedBy { it.pathRelativeToMainFolder.lowercase() }) {
+                val file = File(Util.rootDir, aacDir.pathRelativeToMainFolder)
+                if (!file.exists() || file.isFile) continue
+
+                val bytes = context.resources.openRawResource(R.drawable.folder).use { it.readBytes() }
+                val b64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+                val mime = "image/png"
+
+                val displayName = aacDir.getDisplayName()
+                /*file.name.ifEmpty {
+                    File(aacDir.pathRelativeToMainFolder).name
+                }*/
+
+                val safeName = escapeHtml(displayName)
+                val safePath = escapeHtml(file.absolutePath)
+
+                sb.append(
+                    """
+                <div class="card">
+                  <img class="thumb"
+                       src="data:$mime;base64,$b64"
+                       data-path="$safePath"
+                       onclick="onImgClicked(this)" />
+                  <div class="name">$safeName</div>
+                </div>
+                """.trimIndent()
+                )
+            }
+            //sb.append("</div></div>")
+
+            // files
+            for (aacFile in aacFolder.fileList.sortedBy { it.nameWithExt.lowercase() }) {
+                val file = File(Util.rootDir, aacFile.pathRelativeToMainFolder)
+                if (!file.exists() || !file.isFile) continue
+
+                val bytes = file.readBytes()
+                val b64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+                val mime = when (file.extension.lowercase()) {
+                    "png" -> "image/png"
+                    "webp" -> "image/webp"
+                    "gif" -> "image/gif"
+                    else -> "image/jpeg"
+                }
+
+                val displayName = file.nameWithoutExtension.ifEmpty {
+                    aacFile.nameWithExt.substringBeforeLast('.', aacFile.nameWithExt)
+                }
+
+                val safeName = escapeHtml(displayName)
+                val safePath = escapeHtml(file.absolutePath)
+
+                sb.append(
+                    """
+                <div class="card">
+                  <img class="thumb"
+                       src="data:$mime;base64,$b64"
+                       data-path="$safePath"
+                       onclick="onImgClicked(this)" />
+                  <div class="name">$safeName</div>
+                </div>
+                """.trimIndent()
+                )
+            }
+
+            sb.append("</div></div>")
+            return sb.toString()
+        }
+    }
+
+    private fun buildGalleryContentOfRoot(context: Context, mainFolder: AacFolder): String {
         val sb = StringBuilder()
 
         for (folder in mainFolder.folderList) {
@@ -35,13 +132,44 @@ class ControllerHtml {
             """.trimIndent()
             )
 
+            // folders
+            for (aacFolder in folder.folderList.sortedBy { it.pathRelativeToMainFolder.lowercase() }) {
+                val file = File(Util.rootDir, aacFolder.pathRelativeToMainFolder)
+                if (!file.exists() || file.isFile) continue
+
+                val bytes = context.resources.openRawResource(R.drawable.folder).use { it.readBytes() }
+                val b64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+                val mime = "image/png"
+
+                val displayName = aacFolder.getDisplayName()
+                    /*file.name.ifEmpty {
+                    File(aacFolder.pathRelativeToMainFolder).name
+                }*/
+
+                val safeName = escapeHtml(displayName)
+                val safePath = escapeHtml(file.absolutePath)
+
+                sb.append(
+                    """
+                <div class="card">
+                  <img class="thumb"
+                       src="data:$mime;base64,$b64"
+                       data-path="$safePath"
+                       onclick="onImgClicked(this)" />
+                  <div class="name">$safeName</div>
+                </div>
+                """.trimIndent()
+                )
+            }
+            //sb.append("</div></div>")
+
+            // files
             for (aacFile in folder.fileList.sortedBy { it.nameWithExt.lowercase() }) {
                 val file = File(Util.rootDir, aacFile.pathRelativeToMainFolder)
                 if (!file.exists() || !file.isFile) continue
 
                 val bytes = file.readBytes()
                 val b64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
-
                 val mime = when (file.extension.lowercase()) {
                     "png" -> "image/png"
                     "webp" -> "image/webp"
@@ -74,7 +202,6 @@ class ControllerHtml {
 
         return sb.toString()
     }
-
 
 
 

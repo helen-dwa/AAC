@@ -17,13 +17,14 @@ class ControllerMain(private val context: Context) {
 
     //'Pictures/Lensoft_AAC/'
     var mainFolder: AacFolder = AacFolder("")
+    var currentlyShownFolder = mainFolder
 
     fun readMainFolder() {
         mainFolder = ControllerScanner().scanFolder(mainFolder)
     }
 
     fun makeHtml() : String {
-        return ControllerHtml().buildHtmlFromTemplate(context, mainFolder)
+        return ControllerHtml().buildHtmlFromTemplate(context, currentlyShownFolder)
     }
 
     private fun readFolderRecursive(dir: File, folderModel: AacFolder) {
@@ -102,5 +103,52 @@ class ControllerMain(private val context: Context) {
 
     fun getImagesListSorted(): List<File> =
         getImagesList().sortedBy { it.name.lowercase() }
+
+    private fun findFolderByPath(folder: AacFolder, targetPath: String): AacFolder? {
+        val root = Util.rootDir
+        val targetFile = File(targetPath)
+        val normalizedTargetPath = if (targetFile.isAbsolute) {
+            targetFile.normalize().absolutePath
+        } else {
+            File(root, targetPath).normalize().absolutePath
+        }
+
+        val folderFile = if (folder.pathRelativeToMainFolder.isBlank()) {
+            root
+        } else {
+            File(root, folder.pathRelativeToMainFolder)
+        }
+
+        if (folderFile.normalize().absolutePath == normalizedTargetPath) {
+            return folder
+        }
+
+        for (subFolder in folder.folderList) {
+            val foundFolder = findFolderByPath(subFolder, normalizedTargetPath)
+            if (foundFolder != null) {
+                return foundFolder
+            }
+        }
+
+        return null
+    }
+
+    fun setCurrentlyShownFolder(absolutePath: String) {
+        val folder = findFolderByPath(mainFolder, absolutePath) ?: mainFolder
+        currentlyShownFolder = folder
+    }
+
+    fun showParentOfCurrentlyShownFolder() {
+        /*val currentPath = currentlyShownFolder.pathRelativeToMainFolder
+        if (currentPath.isBlank()) {
+            currentlyShownFolder = mainFolder
+            return
+        }
+
+        val parentPath = File(currentPath).parent.orEmpty()
+        currentlyShownFolder = findFolderByPath(mainFolder, parentPath) ?: mainFolder
+        */
+        currentlyShownFolder = mainFolder
+    }
 
 }
