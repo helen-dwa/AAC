@@ -162,7 +162,9 @@
         .name {
           font-size: 12px;
           margin-top: 6px;
-          word-break: break-word;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
           color: #333;
         }
     </style>
@@ -208,13 +210,35 @@
           }
 
           var cardfolders = document.querySelectorAll('.cardfolder');
-          for (var i = 0; i < cards.length; i++) {
+          for (var i = 0; i < cardfolders.length; i++) {
             var card = cardfolders[i];
             card.style.width = cardWidth + 'px';
             var img = card.querySelector('.thumb');
             if (img) {
               img.style.height = thumbSize + 'px';
             }
+          }
+
+          fitCardNamesToSingleLine();
+        }
+
+        function fitCardNamesToSingleLine() {
+          var names = document.querySelectorAll('.card .name, .cardfolder .name');
+          for (var i = 0; i < names.length; i++) {
+            fitNameToSingleLine(names[i]);
+          }
+        }
+
+        function fitNameToSingleLine(nameEl) {
+          if (!nameEl) return;
+
+          var maxFontSize = 12;
+          var minFontSize = 7;
+          nameEl.style.fontSize = maxFontSize + 'px';
+
+          while (nameEl.scrollWidth > nameEl.clientWidth && maxFontSize > minFontSize) {
+            maxFontSize -= 1;
+            nameEl.style.fontSize = maxFontSize + 'px';
           }
         }
 
