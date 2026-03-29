@@ -9,6 +9,7 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import org.json.JSONObject
 import java.io.File
 import java.util.Locale
 
@@ -22,6 +23,7 @@ class ControllerWebview {
     private lateinit var webView: WebView
     private var lastViewportScale = 1f
     private var contentZoom = 1f
+    private var pageInitialized = false
     private lateinit var scaleDetector: ScaleGestureDetector
     private lateinit var controllerMain: ControllerMain
 
@@ -35,6 +37,7 @@ class ControllerWebview {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
+                pageInitialized = true
                 webView.postDelayed({
                     //Util.printDebugLog("applying zoom = " + contentZoom)
                     applyCardZoom(contentZoom)
@@ -79,38 +82,27 @@ class ControllerWebview {
         // Green behind the page
         //webView.setBackgroundColor(Color.GREEN)
 
-        val html = """
-    <!doctype html>
-    <html>
-    <head>
-      <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-      <style>
-        html, body { margin:0; padding:0; width:100%; height:100%; background:#fff; }
-        .page { width:100%; height:100%; background:#fff; }
-      </style>
-    </head>
-    <body>
-      <div class="page"></div>
-    </body>
-    </html>
-""".trimIndent()
-
-        webView.loadDataWithBaseURL(null, html, "text/html", "utf-8", null)
     }
 
     fun displayPecs(controllerMain: ControllerMain) {
         //val images = controllerMain.getImagesListSorted()
         //val html = ControllerHtml().buildHtmlInline(images)
         this.controllerMain = controllerMain
-        val html = controllerMain.makeHtml()
-        //ControllerHtml().buildHtmlInline(controllerMain.mainFolder)
-        webView.loadDataWithBaseURL(
-            /* baseUrl = */ "https://local/",
-            /* data = */ html,
-            /* mimeType = */ "text/html",
-            /* encoding = */ "utf-8",
-            /* historyUrl = */ null
-        )
+        if (!pageInitialized) {
+            val html = controllerMain.makeHtml()
+            //ControllerHtml().buildHtmlInline(controllerMain.mainFolder)
+            webView.loadDataWithBaseURL(
+                /* baseUrl = */ "https://local/",
+                /* data = */ html,
+                /* mimeType = */ "text/html",
+                /* encoding = */ "utf-8",
+                /* historyUrl = */ null
+            )
+            return
+        }
+
+        val contentHtml = ControllerHtml().buildGalleryContentHtml(webView.context, controllerMain.currentlyShownFolder)
+        updateBottomFrameContent(contentHtml)
     }
 
     private inner class WebAppBridge {
@@ -201,5 +193,18 @@ class ControllerWebview {
         } else {
             webView.loadUrl("javascript:$script")
         }
+    }
+
+    private fun updateBottomFrameContent(contentHtml: String) {
+        val quotedHtml = JSONObject.quote(contentHtml)
+        val script = "window.setBottomFrameContent && window.setBottomFrameContent($quotedHtml);"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            webView.evaluateJavascript(script, null)
+        } else {
+            webView.loadUrl("javascript:$script")
+        }
+        webView.postDelayed({
+            applyCardZoom(contentZoom)
+        }, 50)
     }
 }

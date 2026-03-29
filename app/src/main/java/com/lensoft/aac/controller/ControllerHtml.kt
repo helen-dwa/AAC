@@ -17,10 +17,14 @@ class ControllerHtml {
     fun buildHtmlFromTemplate(context: Context, aacFolder: AacFolder): String {
         val template = readAssetText(context, "main_template.html")
 
-        val content = buildGalleryContent(context, aacFolder)
+        val content = buildGalleryContentHtml(context, aacFolder)
 
         // simple placeholder replace
         return template.replace("{{CONTENT}}", content)
+    }
+
+    fun buildGalleryContentHtml(context: Context, aacFolder: AacFolder): String {
+        return buildGalleryContent(context, aacFolder)
     }
 
     private fun buildGalleryContent(context: Context, aacFolder: AacFolder): String {
@@ -91,7 +95,6 @@ class ControllerHtml {
                   <img class="thumb"
                        src="data:$mime;base64,$b64"
                        data-path="$safePath"
-                       data-word="$safeName"
                        onclick="onImgClicked(this)" />
                   <div class="name">$safeName</div>
                 </div>
