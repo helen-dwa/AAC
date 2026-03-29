@@ -153,6 +153,16 @@ class ControllerWebview {
         }
 
         @JavascriptInterface
+        fun onTextFieldTapped(text: String) {
+            webView.post {
+                val speakText = text.trim()
+                if (speakText.isNotEmpty()) {
+                    ControllerTts.speak(speakText)
+                }
+            }
+        }
+
+        @JavascriptInterface
         fun onViewportScaleChanged(scale: Float) {
             val safeScale = when {
                 !scale.isFinite() || scale <= 0f -> 1f

@@ -4,43 +4,73 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <style>
-        html, body { margin:0; padding:0; background:transparent; }
+        html, body {
+          margin: 0;
+          padding: 0;
+          width: 100%;
+          height: 100%;
+          background: transparent;
+          overflow: hidden;
+        }
 
         #page {
           position: fixed;
           left: 0; top: 0; right: 0; bottom: 0;
+          width: 100%;
+          height: 100%;
           background: #ffffff;
           padding: 12px;
           box-sizing: border-box;
           font-family: sans-serif;
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
+          overflow: hidden;
         }
 
         .top-frame {
-          flex: 0 0 auto;
-          position: relative;
+          position: absolute;
+          left: 12px;
+          top: 12px;
+          right: 12px;
+          width: auto;
+          min-width: 0;
+          max-width: none;
+          height: 42px;
+          box-sizing: border-box;
           z-index: 2;
-          background: #ffffff;
         }
 
         .bottom-frame {
-          flex: 1 1 auto;
-          min-height: 0;
+          position: absolute;
+          left: 12px;
+          top: 66px;
+          right: 12px;
+          bottom: 12px;
+          box-sizing: border-box;
           overflow-y: auto;
           overflow-x: hidden;
         }
 
         .message-bar {
-          display: flex;
-          align-items: stretch;
-          gap: 8px;
+          position: relative;
+          width: 100%;
+          padding-right: 88px;
+          box-sizing: border-box;
+        }
+
+        .message-input-cell {
+          width: 100%;
+          box-sizing: border-box;
+        }
+
+        .message-button-cell {
+          position: absolute;
+          top: 0;
+          right: 0;
+          width: 80px;
         }
 
         #editableTextField {
-          flex: 1 1 auto;
-          min-width: 0;
+          display: block;
+          width: 100%;
           height: 42px;
           font-size: 16px;
           padding: 8px 10px;
@@ -49,8 +79,8 @@
         }
 
         .clear-button {
-          flex: 0 0 auto;
-          min-width: 72px;
+          display: block;
+          width: 80px;
           height: 42px;
           font-size: 16px;
           line-height: 24px;
@@ -140,11 +170,30 @@
     <script>
         var currentCardZoomScale = 1;
 
+        function applyTopFrameWidth() {
+          var page = document.getElementById('page');
+          var topFrame = document.querySelector('.top-frame');
+          var messageBar = document.querySelector('.message-bar');
+          var inputCell = document.querySelector('.message-input-cell');
+          if (!page || !topFrame || !messageBar || !inputCell) return;
+
+          var pageStyle = window.getComputedStyle ? window.getComputedStyle(page) : null;
+          var paddingLeft = pageStyle ? parseFloat(pageStyle.paddingLeft) || 0 : 12;
+          var paddingRight = pageStyle ? parseFloat(pageStyle.paddingRight) || 0 : 12;
+          var availableWidth = page.clientWidth - paddingLeft - paddingRight;
+          if (availableWidth < 0) availableWidth = 0;
+
+          topFrame.style.width = availableWidth + 'px';
+          messageBar.style.width = availableWidth + 'px';
+          inputCell.style.width = availableWidth + 'px';
+        }
+
         function applyAndroidZoomScale(scale) {
           if (!scale || scale <= 0) scale = 1;
           if (scale < 0.5) scale = 0.5;
           if (scale > 5) scale = 5;
           currentCardZoomScale = scale;
+          applyTopFrameWidth();
           var baseCardWidth = 130;
           var cardWidth = Math.round(baseCardWidth * scale);
           var thumbSize = Math.max(40, cardWidth - 18);
@@ -202,11 +251,26 @@
           }
         }
 
+        function speakEditableTextField() {
+          var textField = document.getElementById('editableTextField');
+          if (!textField) return;
+          var end = textField.value ? textField.value.length : 0;
+          if (typeof textField.setSelectionRange === 'function') {
+            textField.setSelectionRange(end, end);
+          }
+          var text = (textField.value || '').trim();
+          if (!text) return;
+          if (window.Android && Android.onTextFieldTapped) {
+            Android.onTextFieldTapped(text);
+          }
+        }
+
         function setBottomFrameContent(contentHtml) {
           var bottomFrame = document.querySelector('.bottom-frame');
           if (!bottomFrame) return;
           bottomFrame.innerHTML = contentHtml || '';
           bottomFrame.scrollTop = 0;
+          applyTopFrameWidth();
           updateGridForZoom();
         }
 
@@ -222,8 +286,12 @@
 <div id="page">
     <div class="top-frame">
         <div class="message-bar">
-            <input type="text" id="editableTextField" />
-            <button type="button" class="clear-button" onclick="clearEditableTextField()">Clear</button>
+            <div class="message-input-cell">
+                <input type="text" id="editableTextField" onclick="speakEditableTextField()" onfocus="speakEditableTextField()" />
+            </div>
+            <div class="message-button-cell">
+                <button type="button" class="clear-button" onclick="clearEditableTextField()">Clear</button>
+            </div>
         </div>
     </div>
     <div class="bottom-frame">
