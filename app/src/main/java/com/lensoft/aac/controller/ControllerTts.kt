@@ -6,62 +6,64 @@ import android.speech.tts.TextToSpeech
 import java.util.Locale
 
 object ControllerTts : TextToSpeech.OnInitListener {
-    private lateinit var tts: TextToSpeech
-    private lateinit var context: Context
+    private var tts: TextToSpeech? = null
+    private var context: Context? = null
+    private var isReady = false
 
     fun init(ctx: Context) {
-        if (::tts.isInitialized) return
-        context = ctx.applicationContext
-        tts = TextToSpeech(context, this)
+        val appContext = ctx.applicationContext
+        context = appContext
+        if (tts != null) return
+
+        isReady = false
+        tts = TextToSpeech(appContext, this)
     }
 
     fun shutdown() {
-        if (::tts.isInitialized) {
-            tts.stop()
-            tts.shutdown()
-        }
+        tts?.stop()
+        tts?.shutdown()
+        tts = null
+        isReady = false
     }
 
-    // Called when TTS engine is ready
     override fun onInit(status: Int) {
-        if (status == TextToSpeech.SUCCESS) {
-
-            // Choose language
-            val result = tts.setLanguage(Locale.getDefault())
-            // or explicitly:
-            // tts.setLanguage(Locale.US)
-
-            if (result == TextToSpeech.LANG_MISSING_DATA ||
-                result == TextToSpeech.LANG_NOT_SUPPORTED
-            ) {
-                // TTS data missing → ask user to install
-                installTtsData()
-            }
+        if (status != TextToSpeech.SUCCESS) {
+            isReady = false
+            return
         }
+
+        val engine = tts ?: run {
+            isReady = false
+            return
+        }
+
+        val result = engine.setLanguage(Locale.getDefault())
+        if (result == TextToSpeech.LANG_MISSING_DATA ||
+            result == TextToSpeech.LANG_NOT_SUPPORTED
+        ) {
+            isReady = false
+            installTtsData()
+            return
+        }
+
+        isReady = true
     }
 
     private fun installTtsData() {
         val intent = Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA)
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        context.startActivity(intent)
+        context?.startActivity(intent)
     }
 
     fun speak(text: String) {
-        if (!::tts.isInitialized) return
-
-        //tts.stop() // cancel previous speech
-        /*tts.speak(
-            text,
-            TextToSpeech.QUEUE_FLUSH,
-            null,
-            "utt_${System.currentTimeMillis()}"
-        )*/
+        val engine = tts ?: return
+        if (!isReady) return
 
         val params = HashMap<String, String>()
         params[TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID] =
             "utt_${System.currentTimeMillis()}"
 
-        tts.speak(
+        engine.speak(
             text,
             TextToSpeech.QUEUE_FLUSH,
             params

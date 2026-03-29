@@ -90,7 +90,7 @@
           white-space: nowrap;
         }
 
-        .section { margin: 16px 0 22px 0; }
+        .section { margin: 16px 0 16px 0; }
         .folder-title { font-size: 16px; font-weight: 700; margin: 0 0 10px 0; }
         .folder-header {
           display: flex;
@@ -231,6 +231,7 @@
               var existingText = textField.value || '';
               existingText = existingText.replace(/\s+$/, '');
               textField.value = existingText ? existingText + ' ' + word + ' ' : word + ' ';
+              notifyEditableTextChanged();
             }
           }
           if (window.Android && Android.onImageClick) {
@@ -248,6 +249,17 @@
           var textField = document.getElementById('editableTextField');
           if (textField) {
             textField.value = '';
+            if (window.Android && Android.onTextFieldChanged) {
+              Android.onTextFieldChanged('');
+            }
+          }
+        }
+
+        function notifyEditableTextChanged() {
+          var textField = document.getElementById('editableTextField');
+          if (!textField) return;
+          if (window.Android && Android.onTextFieldChanged) {
+            Android.onTextFieldChanged(textField.value || '');
           }
         }
 
@@ -265,6 +277,12 @@
           }
         }
 
+        function setEditableText(text) {
+          var textField = document.getElementById('editableTextField');
+          if (!textField) return;
+          textField.value = text || '';
+        }
+
         function setBottomFrameContent(contentHtml) {
           var bottomFrame = document.querySelector('.bottom-frame');
           if (!bottomFrame) return;
@@ -280,6 +298,13 @@
           window.visualViewport.addEventListener('resize', updateGridForZoom);
           window.visualViewport.addEventListener('scroll', updateGridForZoom);
         }
+
+        window.addEventListener('load', function() {
+          var textField = document.getElementById('editableTextField');
+          if (!textField) return;
+          textField.addEventListener('input', notifyEditableTextChanged);
+          textField.addEventListener('change', notifyEditableTextChanged);
+        });
     </script>
 </head>
 <body>

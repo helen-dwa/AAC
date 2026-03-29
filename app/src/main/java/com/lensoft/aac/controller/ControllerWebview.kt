@@ -24,6 +24,7 @@ class ControllerWebview {
     private var lastViewportScale = 1f
     private var contentZoom = 1f
     private var pageInitialized = false
+    private var editableText = ""
     private lateinit var scaleDetector: ScaleGestureDetector
     private lateinit var controllerMain: ControllerMain
 
@@ -39,6 +40,7 @@ class ControllerWebview {
                 super.onPageFinished(view, url)
                 pageInitialized = true
                 webView.postDelayed({
+                    applyEditableText()
                     //Util.printDebugLog("applying zoom = " + contentZoom)
                     applyCardZoom(contentZoom)
                 }, 200)
@@ -105,6 +107,17 @@ class ControllerWebview {
         updateBottomFrameContent(contentHtml)
     }
 
+    fun setEditableText(text: String) {
+        editableText = text
+        if (::webView.isInitialized && pageInitialized) {
+            webView.post {
+                applyEditableText()
+            }
+        }
+    }
+
+    fun getEditableText(): String = editableText
+
     private inner class WebAppBridge {
 
         @JavascriptInterface
@@ -163,6 +176,11 @@ class ControllerWebview {
         }
 
         @JavascriptInterface
+        fun onTextFieldChanged(text: String) {
+            editableText = text
+        }
+
+        @JavascriptInterface
         fun onViewportScaleChanged(scale: Float) {
             val safeScale = when {
                 !scale.isFinite() || scale <= 0f -> 1f
@@ -214,7 +232,18 @@ class ControllerWebview {
             webView.loadUrl("javascript:$script")
         }
         webView.postDelayed({
+            applyEditableText()
             applyCardZoom(contentZoom)
         }, 50)
+    }
+
+    private fun applyEditableText() {
+        val quotedText = JSONObject.quote(editableText)
+        val script = "window.setEditableText && window.setEditableText($quotedText);"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            webView.evaluateJavascript(script, null)
+        } else {
+            webView.loadUrl("javascript:$script")
+        }
     }
 }

@@ -35,6 +35,10 @@ import com.lensoft.aac.controller.ControllerTts
 import com.lensoft.aac.controller.ControllerWebview
 
 class MainActivity : Activity() /*, TextToSpeech.OnInitListener*/ {
+    companion object {
+        private const val STATE_EDITABLE_TEXT = "state_editable_text"
+    }
+
     private val REQ_STORAGE = 1001
     val controllerMain = ControllerMain(this)
     private val controllerWebview = ControllerWebview()
@@ -57,6 +61,7 @@ class MainActivity : Activity() /*, TextToSpeech.OnInitListener*/ {
         val webView: WebView = findViewById(R.id.webView)
 
         controllerWebview.init(webView)
+        controllerWebview.setEditableText(savedInstanceState?.getString(STATE_EDITABLE_TEXT).orEmpty())
 
         ensureStoragePermissionAndCreateFolder()
     }
@@ -155,9 +160,16 @@ class MainActivity : Activity() /*, TextToSpeech.OnInitListener*/ {
         controllerWebview.displayPecs(controllerMain)
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putString(STATE_EDITABLE_TEXT, controllerWebview.getEditableText())
+    }
+
     override fun onDestroy() {
         super.onDestroy()
-        controllerTts.shutdown()
+        if (isFinishing) {
+            controllerTts.shutdown()
+        }
     }
 }
 /*

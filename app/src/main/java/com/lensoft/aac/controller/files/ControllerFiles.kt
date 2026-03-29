@@ -167,7 +167,7 @@ class ControllerFiles(private val context: Context) {
         }
 
         // Create a tiny placeholder image
-        val imageFile = File(mainFolder, "_.placeholder.jpg")
+        val imageFile = File(mainFolder, "000000.jpg")
         if (!imageFile.exists()) {
             // Minimal valid JPEG (SOI + EOI)
             imageFile.writeBytes(byteArrayOf(

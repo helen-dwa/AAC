@@ -51,7 +51,7 @@ class ControllerScanner {
 
         for (f in sorted) {
             // Skip hidden entries (optional)
-            if (f.name.startsWith(".")) continue
+            if (f.name.startsWith(".") || f.name.startsWith("000000")) continue
 
             if (f.isDirectory) {
                 val rel = joinRel(parentFolder.pathRelativeToMainFolder, f.name)
