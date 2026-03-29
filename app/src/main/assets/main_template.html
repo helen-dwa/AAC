@@ -17,6 +17,28 @@
           font-family: sans-serif;
         }
 
+        .message-bar {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin: 0 0 12px 0;
+        }
+
+        #editableTextField {
+          flex: 1 1 auto;
+          min-width: 0;
+          font-size: 16px;
+          padding: 8px 10px;
+          box-sizing: border-box;
+        }
+
+        .clear-button {
+          flex: 0 0 auto;
+          font-size: 16px;
+          padding: 8px 14px;
+          cursor: pointer;
+        }
+
         .section { margin: 16px 0 22px 0; }
         .folder-title { font-size: 16px; font-weight: 700; margin: 0 0 10px 0; }
         .folder-header {
@@ -95,10 +117,13 @@
     </style>
 
     <script>
+        var currentCardZoomScale = 1;
+
         function applyAndroidZoomScale(scale) {
           if (!scale || scale <= 0) scale = 1;
           if (scale < 0.5) scale = 0.5;
           if (scale > 5) scale = 5;
+          currentCardZoomScale = scale;
           var baseCardWidth = 130;
           var cardWidth = Math.round(baseCardWidth * scale);
           var thumbSize = Math.max(40, cardWidth - 18);
@@ -124,16 +149,20 @@
         }
 
         function updateGridForZoom() {
-          var vv = window.visualViewport;
-          var scale = vv ? vv.scale : 1;
-          applyAndroidZoomScale(scale);
-          if (window.Android && Android.onViewportScaleChanged) {
-            Android.onViewportScaleChanged(scale);
-          }
+          applyAndroidZoomScale(currentCardZoomScale || 1);
         }
 
         function onImgClicked(el) {
           var path = el.getAttribute('data-path') || '';
+          var word = el.getAttribute('data-word') || '';
+          if (word) {
+            var textField = document.getElementById('editableTextField');
+            if (textField) {
+              var existingText = textField.value || '';
+              existingText = existingText.replace(/\s+$/, '');
+              textField.value = existingText ? existingText + ' ' + word + ' ' : word + ' ';
+            }
+          }
           if (window.Android && Android.onImageClick) {
             Android.onImageClick(path);
           }
@@ -142,6 +171,13 @@
         function onBackClicked() {
           if (window.Android && Android.onBackClick) {
             Android.onBackClick();
+          }
+        }
+
+        function clearEditableTextField() {
+          var textField = document.getElementById('editableTextField');
+          if (textField) {
+            textField.value = '';
           }
         }
 
@@ -155,6 +191,10 @@
 </head>
 <body>
 <div id="page">
+    <div class="message-bar">
+        <input type="text" id="editableTextField" />
+        <button type="button" class="clear-button" onclick="clearEditableTextField()">Clear</button>
+    </div>
     {{CONTENT}}
 </div>
 </body>

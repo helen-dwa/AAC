@@ -91,6 +91,7 @@ class ControllerHtml {
                   <img class="thumb"
                        src="data:$mime;base64,$b64"
                        data-path="$safePath"
+                       data-word="$safeName"
                        onclick="onImgClicked(this)" />
                   <div class="name">$safeName</div>
                 </div>
@@ -126,6 +127,7 @@ class ControllerHtml {
                   <img class="thumb"
                        src="data:$mime;base64,$b64"
                        data-path="$safePath"
+                       data-word="$safeName"
                        onclick="onImgClicked(this)" />
                   <div class="name">$safeName</div>
                 </div>
