@@ -11,6 +11,8 @@
           height: 100%;
           background: transparent;
           overflow: hidden;
+          -webkit-text-size-adjust: 100%;
+          text-size-adjust: 100%;
         }
 
         #page {
@@ -19,7 +21,7 @@
           width: 100%;
           height: 100%;
           background: #ffffff;
-          padding: 12px;
+          padding: {{PAGE_PADDING}}px;
           box-sizing: border-box;
           font-family: sans-serif;
           overflow: hidden;
@@ -27,71 +29,97 @@
 
         .top-frame {
           position: absolute;
-          left: 12px;
-          top: 12px;
-          right: 12px;
+          left: {{PAGE_PADDING}}px;
+          top: {{PAGE_PADDING}}px;
+          right: {{PAGE_PADDING}}px;
           width: auto;
           min-width: 0;
           max-width: none;
-          height: 42px;
+          height: {{TOP_FRAME_HEIGHT}}px;
           box-sizing: border-box;
           z-index: 2;
+          overflow: hidden;
         }
 
         .bottom-frame {
           position: absolute;
-          left: 12px;
-          top: 66px;
-          right: 12px;
-          bottom: 12px;
+          left: {{PAGE_PADDING}}px;
+          top: {{BOTTOM_FRAME_TOP}}px;
+          right: {{PAGE_PADDING}}px;
+          bottom: {{PAGE_PADDING}}px;
           box-sizing: border-box;
           overflow-y: auto;
           overflow-x: hidden;
         }
 
         .message-bar {
-          display: flex;
-          align-items: center;
-          gap: 8px;
+          display: table;
+          table-layout: fixed;
           width: 100%;
           box-sizing: border-box;
+          overflow: hidden;
+          border-collapse: separate;
+          border-spacing: 0;
         }
 
         .message-input-cell {
-          flex: 1 1 auto;
+          display: table-cell;
+          vertical-align: middle;
+          width: auto;
           min-width: 0;
           box-sizing: border-box;
+          overflow: hidden;
+          padding-left: {{MESSAGE_BAR_GAP}}px;
+          padding-right: {{MESSAGE_BAR_GAP}}px;
         }
 
         .message-button-cell {
-          flex: 0 0 auto;
+          display: table-cell;
+          vertical-align: middle;
+          box-sizing: border-box;
+          white-space: nowrap;
+        }
+
+        .message-button-cell.keyboard-cell {
+          width: {{ICON_BUTTON_SIZE}}px;
+        }
+
+        .message-button-cell.clear-cell {
+          width: {{CLEAR_BUTTON_WIDTH}}px;
         }
 
         .icon-button {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          width: 42px;
-          height: 42px;
+          width: {{ICON_BUTTON_SIZE}}px;
+          height: {{ICON_BUTTON_SIZE}}px;
           padding: 0;
+          border: 0;
+          background: transparent;
           box-sizing: border-box;
           cursor: pointer;
+          appearance: none;
+          -webkit-appearance: none;
         }
 
         .icon-button img {
-          width: 24px;
-          height: 24px;
+          width: {{ICON_SIZE}}px;
+          height: {{ICON_SIZE}}px;
           display: block;
+          margin: 0 auto;
         }
 
         #editableTextField {
           display: block;
           width: 100%;
-          height: 42px;
-          font-size: 16px;
-          padding: 8px 10px;
+          max-width: 100%;
+          min-width: 0;
+          height: {{CONTROL_HEIGHT}}px;
+          font-size: {{INPUT_FONT_SIZE}}px;
+          padding: {{INPUT_PADDING_VERTICAL}}px {{INPUT_PADDING_HORIZONTAL}}px;
           box-sizing: border-box;
-          line-height: 24px;
+          line-height: {{INPUT_LINE_HEIGHT}}px;
         }
 
         #editableTextField:disabled {
@@ -102,11 +130,11 @@
 
         .clear-button {
           display: block;
-          width: 80px;
-          height: 42px;
-          font-size: 16px;
-          line-height: 24px;
-          padding: 8px 14px;
+          width: {{CLEAR_BUTTON_WIDTH}}px;
+          height: {{CONTROL_HEIGHT}}px;
+          font-size: {{CLEAR_BUTTON_FONT_SIZE}}px;
+          line-height: {{CLEAR_BUTTON_LINE_HEIGHT}}px;
+          padding: {{CLEAR_BUTTON_PADDING_VERTICAL}}px {{CLEAR_BUTTON_PADDING_HORIZONTAL}}px;
           cursor: pointer;
           box-sizing: border-box;
           white-space: nowrap;
@@ -206,16 +234,26 @@
           var page = document.getElementById('page');
           var topFrame = document.querySelector('.top-frame');
           var messageBar = document.querySelector('.message-bar');
+          var inputCell = document.querySelector('.message-input-cell');
+          var inputField = document.getElementById('editableTextField');
           if (!page || !topFrame || !messageBar) return;
 
           var pageStyle = window.getComputedStyle ? window.getComputedStyle(page) : null;
-          var paddingLeft = pageStyle ? parseFloat(pageStyle.paddingLeft) || 0 : 12;
-          var paddingRight = pageStyle ? parseFloat(pageStyle.paddingRight) || 0 : 12;
+          var paddingLeft = pageStyle ? parseFloat(pageStyle.paddingLeft) || 0 : {{PAGE_PADDING}};
+          var paddingRight = pageStyle ? parseFloat(pageStyle.paddingRight) || 0 : {{PAGE_PADDING}};
           var availableWidth = page.clientWidth - paddingLeft - paddingRight;
           if (availableWidth < 0) availableWidth = 0;
 
           topFrame.style.width = availableWidth + 'px';
           messageBar.style.width = availableWidth + 'px';
+          if (inputCell) {
+            inputCell.style.width = 'auto';
+            inputCell.style.maxWidth = 'none';
+          }
+          if (inputField) {
+            inputField.style.width = '100%';
+            inputField.style.maxWidth = '100%';
+          }
         }
 
         function applyAndroidZoomScale(scale) {
@@ -455,7 +493,7 @@
 <div id="page">
     <div class="top-frame">
         <div class="message-bar">
-            <div class="message-button-cell">
+            <div class="message-button-cell keyboard-cell">
                 <button type="button" id="btnKeyboard" class="icon-button" onclick="toggleKeyboard()" aria-label="Toggle keyboard">
                     <img id="btnKeyboardIcon" src="{{KEYBOARD_OFF_ICON}}" alt="Keyboard" />
                 </button>
@@ -463,7 +501,7 @@
             <div class="message-input-cell" onclick="onEditableTextFieldContainerClick(event)" ontouchend="onEditableTextFieldContainerClick(event)">
                 <input type="text" id="editableTextField" onclick="onEditableTextFieldPressed(event)" onfocus="speakEditableTextField()" disabled />
             </div>
-            <div class="message-button-cell">
+            <div class="message-button-cell clear-cell">
                 <button type="button" class="clear-button" onclick="clearEditableTextField()">Clear</button>
             </div>
         </div>

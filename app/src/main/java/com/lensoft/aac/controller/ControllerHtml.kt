@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Rect
+import android.util.DisplayMetrics
 import android.util.Base64
 import com.lensoft.aac.R
 import com.lensoft.aac.model.AacFile
@@ -20,9 +21,27 @@ class ControllerHtml {
         val content = buildGalleryContentHtml(context, aacFolder)
         val keyboardOffIcon = drawableDataUri(context, R.drawable.keyboard_off)
         val keyboardOnIcon = drawableDataUri(context, R.drawable.keyboard_on)
+        val topFrameMetrics = buildTopFrameMetrics(context.resources.displayMetrics)
 
         // simple placeholder replace
         return template
+            .replace("{{PAGE_PADDING}}", topFrameMetrics.pagePaddingPx.toString())
+            .replace("{{TOP_FRAME_HEIGHT}}", topFrameMetrics.topFrameHeightPx.toString())
+            .replace("{{BOTTOM_FRAME_TOP}}", topFrameMetrics.bottomFrameTopPx.toString())
+            .replace("{{MESSAGE_BAR_GAP}}", topFrameMetrics.messageBarGapPx.toString())
+            .replace("{{ICON_BUTTON_SIZE}}", topFrameMetrics.iconButtonSizePx.toString())
+            .replace("{{ICON_SIZE}}", topFrameMetrics.iconSizePx.toString())
+            .replace("{{CONTROL_HEIGHT}}", topFrameMetrics.controlHeightPx.toString())
+            .replace("{{INPUT_FONT_SIZE}}", topFrameMetrics.inputFontSizePx.toString())
+            .replace("{{INPUT_LINE_HEIGHT}}", topFrameMetrics.inputLineHeightPx.toString())
+            .replace("{{INPUT_PADDING_VERTICAL}}", topFrameMetrics.inputPaddingVerticalPx.toString())
+            .replace("{{INPUT_PADDING_HORIZONTAL}}", topFrameMetrics.inputPaddingHorizontalPx.toString())
+            .replace("{{CLEAR_BUTTON_WIDTH}}", topFrameMetrics.clearButtonWidthPx.toString())
+            .replace("{{CLEAR_BUTTON_FONT_SIZE}}", topFrameMetrics.clearButtonFontSizePx.toString())
+            .replace("{{CLEAR_BUTTON_LINE_HEIGHT}}", topFrameMetrics.clearButtonLineHeightPx.toString())
+            .replace("{{CLEAR_BUTTON_PADDING_VERTICAL}}", topFrameMetrics.clearButtonPaddingVerticalPx.toString())
+            .replace("{{CLEAR_BUTTON_PADDING_HORIZONTAL}}", topFrameMetrics.clearButtonPaddingHorizontalPx.toString())
+            .replace("{{TOP_FRAME_MIN_INPUT_WIDTH}}", topFrameMetrics.minInputWidthPx.toString())
             .replace("{{KEYBOARD_OFF_ICON}}", keyboardOffIcon)
             .replace("{{KEYBOARD_ON_ICON}}", keyboardOnIcon)
             .replace("{{CONTENT}}", content)
@@ -225,4 +244,79 @@ class ControllerHtml {
             output.toByteArray()
         }
     }
+
+    private fun buildTopFrameMetrics(displayMetrics: DisplayMetrics): TopFrameMetrics {
+        val density = displayMetrics.density.takeIf { it > 0f } ?: 1f
+        val screenWidthDp = displayMetrics.widthPixels / density
+
+        val compactScale = when {
+            screenWidthDp <= 240f -> 0.72f
+            screenWidthDp <= 280f -> 0.80f
+            screenWidthDp <= 320f -> 0.88f
+            screenWidthDp <= 360f -> 0.94f
+            else -> 1f
+        }
+
+        fun scaled(base: Int, minValue: Int): Int {
+            return kotlin.math.max(minValue, kotlin.math.round(base * compactScale).toInt())
+        }
+
+        val pagePadding = scaled(base = 12, minValue = 8)
+        val controlHeight = scaled(base = 42, minValue = 32)
+        val messageGap = scaled(base = 8, minValue = 4)
+        val iconButtonSize = scaled(base = 42, minValue = 32)
+        val iconSize = scaled(base = 24, minValue = 18)
+        val clearButtonWidth = scaled(base = 80, minValue = 58)
+        val inputFontSize = scaled(base = 16, minValue = 12)
+        val inputLineHeight = scaled(base = 24, minValue = 18)
+        val inputPaddingVertical = scaled(base = 8, minValue = 5)
+        val inputPaddingHorizontal = scaled(base = 10, minValue = 6)
+        val clearButtonFontSize = scaled(base = 16, minValue = 12)
+        val clearButtonLineHeight = scaled(base = 24, minValue = 18)
+        val clearButtonPaddingVertical = scaled(base = 8, minValue = 5)
+        val clearButtonPaddingHorizontal = scaled(base = 14, minValue = 8)
+        val topFrameHeight = controlHeight
+        val bottomFrameTop = pagePadding + topFrameHeight + scaled(base = 12, minValue = 8)
+        val minInputWidth = scaled(base = 92, minValue = 64)
+
+        return TopFrameMetrics(
+            pagePaddingPx = pagePadding,
+            topFrameHeightPx = topFrameHeight,
+            bottomFrameTopPx = bottomFrameTop,
+            messageBarGapPx = messageGap,
+            iconButtonSizePx = iconButtonSize,
+            iconSizePx = iconSize,
+            controlHeightPx = controlHeight,
+            inputFontSizePx = inputFontSize,
+            inputLineHeightPx = inputLineHeight,
+            inputPaddingVerticalPx = inputPaddingVertical,
+            inputPaddingHorizontalPx = inputPaddingHorizontal,
+            clearButtonWidthPx = clearButtonWidth,
+            clearButtonFontSizePx = clearButtonFontSize,
+            clearButtonLineHeightPx = clearButtonLineHeight,
+            clearButtonPaddingVerticalPx = clearButtonPaddingVertical,
+            clearButtonPaddingHorizontalPx = clearButtonPaddingHorizontal,
+            minInputWidthPx = minInputWidth
+        )
+    }
+
+    private data class TopFrameMetrics(
+        val pagePaddingPx: Int,
+        val topFrameHeightPx: Int,
+        val bottomFrameTopPx: Int,
+        val messageBarGapPx: Int,
+        val iconButtonSizePx: Int,
+        val iconSizePx: Int,
+        val controlHeightPx: Int,
+        val inputFontSizePx: Int,
+        val inputLineHeightPx: Int,
+        val inputPaddingVerticalPx: Int,
+        val inputPaddingHorizontalPx: Int,
+        val clearButtonWidthPx: Int,
+        val clearButtonFontSizePx: Int,
+        val clearButtonLineHeightPx: Int,
+        val clearButtonPaddingVerticalPx: Int,
+        val clearButtonPaddingHorizontalPx: Int,
+        val minInputWidthPx: Int
+    )
 }
