@@ -18,9 +18,14 @@ class ControllerHtml {
         val template = readAssetText(context, "main_template.html")
 
         val content = buildGalleryContentHtml(context, aacFolder)
+        val keyboardOffIcon = drawableDataUri(context, R.drawable.keyboard_off)
+        val keyboardOnIcon = drawableDataUri(context, R.drawable.keyboard_on)
 
         // simple placeholder replace
-        return template.replace("{{CONTENT}}", content)
+        return template
+            .replace("{{KEYBOARD_OFF_ICON}}", keyboardOffIcon)
+            .replace("{{KEYBOARD_ON_ICON}}", keyboardOnIcon)
+            .replace("{{CONTENT}}", content)
     }
 
     fun buildGalleryContentHtml(context: Context, aacFolder: AacFolder): String {
@@ -47,6 +52,7 @@ class ControllerHtml {
         val sb = StringBuilder()
 
         makeHtmlOfFiles(context, mainFolder, sb)
+        makeHtmlOfFolders(context, mainFolder, sb)
         //sb.append("</div></div>")
 
         for (folder in mainFolder.folderList) {
@@ -174,6 +180,12 @@ class ControllerHtml {
         val bitmap = BitmapFactory.decodeResource(context.resources, resId)
             ?: error("Unable to decode drawable resource: $resId")
         return bitmapToPngBytes(bitmap)
+    }
+
+    private fun drawableDataUri(context: Context, resId: Int): String {
+        val bytes = readDrawablePngBytes(context, resId)
+        val b64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+        return "data:image/png;base64,$b64"
     }
 
     private fun buildFolderPreviewBytes(context: Context, aacFolder: AacFolder): ByteArray {

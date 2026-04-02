@@ -27,6 +27,7 @@ import android.view.ScaleGestureDetector
 import android.view.MotionEvent
 import android.webkit.WebSettings
 import android.widget.FrameLayout
+import androidx.annotation.RequiresApi
 import java.util.Locale
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -93,28 +94,12 @@ class MainActivity : Activity() /*, TextToSpeech.OnInitListener*/ {
 
     private fun ensureStoragePermissionAndCreateFolder() {
         when {
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> {
-                // Android 10+ (API 29+) : no storage permission needed for MediaStore writes
-                //onPermissionGranted()
-                requestPermissions(
-                    arrayOf(Manifest.permission.READ_MEDIA_IMAGES),
-                    REQ_STORAGE
-                )
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> {
+                ensurePermissions(arrayOf(Manifest.permission.READ_MEDIA_IMAGES))
             }
 
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.M -> {
-                val perms = arrayOf(
-                    android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                    android.Manifest.permission.READ_EXTERNAL_STORAGE
-                )
-                val missing = perms.any {
-                    checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED
-                }
-                if (missing) {
-                    requestPermissions(perms, REQ_STORAGE)
-                    return
-                }
-                onPermissionGranted()
+                ensurePermissions(arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE))
             }
 
             else -> {
@@ -122,6 +107,18 @@ class MainActivity : Activity() /*, TextToSpeech.OnInitListener*/ {
                 onPermissionGranted()
             }
         }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.M)
+    private fun ensurePermissions(perms: Array<String>) {
+        val missing = perms.any {
+            checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED
+        }
+        if (missing) {
+            requestPermissions(perms, REQ_STORAGE)
+            return
+        }
+        onPermissionGranted()
     }
 
     private fun ensureStoragePermissionAndCreateFolder_modern() {

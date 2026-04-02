@@ -94,7 +94,7 @@ class ControllerFiles(private val context: Context) {
         }
 
         // 2) Insert a dummy item to force directory creation
-        val displayName = ".nomedia_${System.currentTimeMillis()}.jpg" // unique so insert won't conflict
+        val displayName = "000000_${System.currentTimeMillis()}.jpg" // unique so insert won't conflict
         val values = ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, displayName)
             put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")

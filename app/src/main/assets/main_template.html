@@ -50,22 +50,38 @@
         }
 
         .message-bar {
-          position: relative;
+          display: flex;
+          align-items: center;
+          gap: 8px;
           width: 100%;
-          padding-right: 88px;
           box-sizing: border-box;
         }
 
         .message-input-cell {
-          width: 100%;
+          flex: 1 1 auto;
+          min-width: 0;
           box-sizing: border-box;
         }
 
         .message-button-cell {
-          position: absolute;
-          top: 0;
-          right: 0;
-          width: 80px;
+          flex: 0 0 auto;
+        }
+
+        .icon-button {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 42px;
+          height: 42px;
+          padding: 0;
+          box-sizing: border-box;
+          cursor: pointer;
+        }
+
+        .icon-button img {
+          width: 24px;
+          height: 24px;
+          display: block;
         }
 
         #editableTextField {
@@ -76,6 +92,12 @@
           padding: 8px 10px;
           box-sizing: border-box;
           line-height: 24px;
+        }
+
+        #editableTextField:disabled {
+          color: #666666;
+          background: #f3f3f3;
+          pointer-events: none;
         }
 
         .clear-button {
@@ -173,13 +195,18 @@
 
     <script>
         var currentCardZoomScale = 1;
+        var keyboardStatus = 'keyboard_off';
+        var suppressEditableTextFieldSpeakOnce = false;
+        var keyboardIcons = {
+          keyboard_off: '{{KEYBOARD_OFF_ICON}}',
+          keyboard_on: '{{KEYBOARD_ON_ICON}}'
+        };
 
         function applyTopFrameWidth() {
           var page = document.getElementById('page');
           var topFrame = document.querySelector('.top-frame');
           var messageBar = document.querySelector('.message-bar');
-          var inputCell = document.querySelector('.message-input-cell');
-          if (!page || !topFrame || !messageBar || !inputCell) return;
+          if (!page || !topFrame || !messageBar) return;
 
           var pageStyle = window.getComputedStyle ? window.getComputedStyle(page) : null;
           var paddingLeft = pageStyle ? parseFloat(pageStyle.paddingLeft) || 0 : 12;
@@ -189,7 +216,6 @@
 
           topFrame.style.width = availableWidth + 'px';
           messageBar.style.width = availableWidth + 'px';
-          inputCell.style.width = availableWidth + 'px';
         }
 
         function applyAndroidZoomScale(scale) {
@@ -249,6 +275,7 @@
         }
 
         function onImgClicked(el) {
+          setKeyboardStatus('keyboard_off');
           var path = el.getAttribute('data-path') || '';
           var word = el.getAttribute('data-word') || '';
           if (word) {
@@ -292,8 +319,13 @@
         function speakEditableTextField() {
           var textField = document.getElementById('editableTextField');
           if (!textField) return;
+          if (suppressEditableTextFieldSpeakOnce) {
+            suppressEditableTextFieldSpeakOnce = false;
+            return;
+          }
+          var isDisabled = !!textField.disabled;
           var end = textField.value ? textField.value.length : 0;
-          if (typeof textField.setSelectionRange === 'function') {
+          if (!isDisabled && typeof textField.setSelectionRange === 'function') {
             textField.setSelectionRange(end, end);
           }
           var text = (textField.value || '').trim();
@@ -303,10 +335,95 @@
           }
         }
 
+        function onEditableTextFieldPressed(event) {
+          if (event) {
+            event.stopPropagation();
+          }
+          setKeyboardStatus('keyboard_off');
+          speakEditableTextField();
+        }
+
+        function onEditableTextFieldContainerClick(event) {
+          var textField = document.getElementById('editableTextField');
+          if (!textField || !textField.disabled) return;
+          if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+          setKeyboardStatus('keyboard_off');
+          speakEditableTextField();
+        }
+
         function setEditableText(text) {
           var textField = document.getElementById('editableTextField');
           if (!textField) return;
           textField.value = text || '';
+        }
+
+        function focusEditableTextFieldAtEnd() {
+          var textField = document.getElementById('editableTextField');
+          if (!textField || textField.disabled) return;
+          var currentValue = textField.value || '';
+          if (currentValue && !/\s$/.test(currentValue)) {
+            currentValue += ' ';
+            textField.value = currentValue;
+            notifyEditableTextChanged();
+          }
+          var end = currentValue.length;
+          textField.focus();
+          if (typeof textField.setSelectionRange === 'function') {
+            textField.setSelectionRange(end, end);
+          }
+        }
+
+        function hideVirtualKeyboard() {
+          var textField = document.getElementById('editableTextField');
+          if (!textField) return;
+          textField.blur();
+        }
+
+        function updateKeyboardButtonIcon(status) {
+          var button = document.getElementById('btnKeyboard');
+          var icon = document.getElementById('btnKeyboardIcon');
+          if (button) {
+            button.setAttribute('aria-pressed', status === 'keyboard_on' ? 'true' : 'false');
+          }
+          if (!icon) return;
+          icon.src = keyboardIcons[status] || keyboardIcons.keyboard_off;
+        }
+
+        function setKeyboardStatus(status, options) {
+          var textField = document.getElementById('editableTextField');
+          var safeStatus = status === 'keyboard_on' ? 'keyboard_on' : 'keyboard_off';
+          var shouldFocus = options && options.focusField;
+          if (!textField) {
+            keyboardStatus = safeStatus;
+            updateKeyboardButtonIcon(safeStatus);
+            return;
+          }
+
+          keyboardStatus = safeStatus;
+          updateKeyboardButtonIcon(safeStatus);
+
+          if (safeStatus === 'keyboard_on') {
+            textField.disabled = false;
+            if (shouldFocus) {
+              suppressEditableTextFieldSpeakOnce = true;
+              focusEditableTextFieldAtEnd();
+            }
+            return;
+          }
+
+          hideVirtualKeyboard();
+          textField.disabled = true;
+        }
+
+        function toggleKeyboard() {
+          if (keyboardStatus === 'keyboard_off') {
+            setKeyboardStatus('keyboard_on', { focusField: true });
+            return;
+          }
+          setKeyboardStatus('keyboard_off');
         }
 
         function setBottomFrameContent(contentHtml) {
@@ -326,6 +443,7 @@
         }
 
         window.addEventListener('load', function() {
+          setKeyboardStatus('keyboard_off');
           var textField = document.getElementById('editableTextField');
           if (!textField) return;
           textField.addEventListener('input', notifyEditableTextChanged);
@@ -337,8 +455,13 @@
 <div id="page">
     <div class="top-frame">
         <div class="message-bar">
-            <div class="message-input-cell">
-                <input type="text" id="editableTextField" onclick="speakEditableTextField()" onfocus="speakEditableTextField()" />
+            <div class="message-button-cell">
+                <button type="button" id="btnKeyboard" class="icon-button" onclick="toggleKeyboard()" aria-label="Toggle keyboard">
+                    <img id="btnKeyboardIcon" src="{{KEYBOARD_OFF_ICON}}" alt="Keyboard" />
+                </button>
+            </div>
+            <div class="message-input-cell" onclick="onEditableTextFieldContainerClick(event)" ontouchend="onEditableTextFieldContainerClick(event)">
+                <input type="text" id="editableTextField" onclick="onEditableTextFieldPressed(event)" onfocus="speakEditableTextField()" disabled />
             </div>
             <div class="message-button-cell">
                 <button type="button" class="clear-button" onclick="clearEditableTextField()">Clear</button>
