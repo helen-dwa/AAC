@@ -47,6 +47,10 @@ class ControllerFiles(private val context: Context) {
 
     // ===== private ======
     private fun shouldSeedExampleAssets(mainFolder: File): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            return shouldSeedExampleAssetsModern()
+        }
+
         val entries = mainFolder.listFiles()?.filterNot { it.name.startsWith(".") }.orEmpty()
         if (entries.isEmpty()) return true
 
@@ -118,7 +122,11 @@ class ControllerFiles(private val context: Context) {
     ) {
         val fileName = assetPath.substringAfterLast('/')
         val destinationFile = File(destinationFolder, fileName)
-        if (destinationFile.exists()) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            if (mediaEntryExists(relativePathFromPictures, fileName)) return
+        } else if (destinationFile.exists()) {
+            return
+        }
 
         assetManager.open(assetPath).use { inputStream ->
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -169,6 +177,56 @@ class ControllerFiles(private val context: Context) {
             "gif" -> "image/gif"
             "jpg", "jpeg" -> "image/jpeg"
             else -> "application/octet-stream"
+        }
+    }
+
+    private fun shouldSeedExampleAssetsModern(): Boolean {
+        val projection = arrayOf(
+            MediaStore.Images.Media.DISPLAY_NAME,
+            MediaStore.Images.Media.RELATIVE_PATH
+        )
+        val selection =
+            "${MediaStore.Images.Media.RELATIVE_PATH} LIKE ? AND ${MediaStore.Images.Media.DISPLAY_NAME} NOT LIKE ?"
+        val selectionArgs = arrayOf(
+            "${Environment.DIRECTORY_PICTURES}/${Util.mainFolderName}/%",
+            "000000%"
+        )
+
+        return try {
+            context.contentResolver.query(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                projection,
+                selection,
+                selectionArgs,
+                null
+            )?.use { cursor ->
+                cursor.count == 0
+            } ?: true
+        } catch (t: Throwable) {
+            Util.printDebugLog("shouldSeedExampleAssetsModern failed: ${t.javaClass.simpleName}: ${t.message}")
+            true
+        }
+    }
+
+    private fun mediaEntryExists(relativePath: String, displayName: String): Boolean {
+        val projection = arrayOf(MediaStore.Images.Media._ID)
+        val selection =
+            "${MediaStore.Images.Media.RELATIVE_PATH}=? AND ${MediaStore.Images.Media.DISPLAY_NAME}=?"
+        val selectionArgs = arrayOf(relativePath, displayName)
+
+        return try {
+            context.contentResolver.query(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                projection,
+                selection,
+                selectionArgs,
+                null
+            )?.use { cursor ->
+                cursor.moveToFirst()
+            } ?: false
+        } catch (t: Throwable) {
+            Util.printDebugLog("mediaEntryExists failed for $relativePath$displayName: ${t.javaClass.simpleName}: ${t.message}")
+            false
         }
     }
 

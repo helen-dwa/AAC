@@ -24,7 +24,7 @@ class ControllerMain(private val context: Context) {
     var currentlyShownFolder = mainFolder
 
     fun readMainFolder() {
-        mainFolder = ControllerScanner().scanFolder(mainFolder)
+        mainFolder = ControllerScanner(context).scanFolder(mainFolder)
     }
 
     fun makeHtml() : String {
@@ -137,9 +137,43 @@ class ControllerMain(private val context: Context) {
         return null
     }
 
+    private fun findFileByPath(folder: AacFolder, targetPath: String): AacFile? {
+        val root = Util.rootDir
+        val targetFile = File(targetPath)
+        val normalizedTargetPath = if (targetFile.isAbsolute) {
+            targetFile.normalize().absolutePath
+        } else {
+            File(root, targetPath).normalize().absolutePath
+        }
+
+        for (aacFile in folder.fileList) {
+            val filePath = File(root, aacFile.pathRelativeToMainFolder).normalize().absolutePath
+            if (filePath == normalizedTargetPath) {
+                return aacFile
+            }
+        }
+
+        for (subFolder in folder.folderList) {
+            val foundFile = findFileByPath(subFolder, normalizedTargetPath)
+            if (foundFile != null) {
+                return foundFile
+            }
+        }
+
+        return null
+    }
+
     fun setCurrentlyShownFolder(absolutePath: String) {
         val folder = findFolderByPath(mainFolder, absolutePath) ?: mainFolder
         currentlyShownFolder = folder
+    }
+
+    fun hasFolder(path: String): Boolean {
+        return findFolderByPath(mainFolder, path) != null
+    }
+
+    fun getAacFile(path: String): AacFile? {
+        return findFileByPath(mainFolder, path)
     }
 
     fun showParentOfCurrentlyShownFolder() {

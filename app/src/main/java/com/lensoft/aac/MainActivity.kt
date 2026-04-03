@@ -35,7 +35,7 @@ import androidx.core.view.WindowInsetsCompat
 import com.lensoft.aac.controller.ControllerTts
 import com.lensoft.aac.controller.ControllerWebview
 
-class MainActivity : Activity() /*, TextToSpeech.OnInitListener*/ {
+class MainActivity : Activity() {
     private val REQ_STORAGE = 1001
     val controllerMain = ControllerMain(this)
     private val controllerWebview = ControllerWebview()

@@ -6,6 +6,9 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Rect
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import android.util.DisplayMetrics
 import android.util.Base64
 import com.lensoft.aac.R
@@ -99,9 +102,6 @@ class ControllerHtml {
 
     private fun makeHtmlOfFolders(context: Context, parentFolder: AacFolder, sb: StringBuilder) {
         for (aacFolder in parentFolder.folderList.sortedBy { it.pathRelativeToMainFolder.lowercase() }) {
-            val file = File(Util.rootDir, aacFolder.pathRelativeToMainFolder)
-            if (!file.exists() || file.isFile) continue
-
             val bytes = buildFolderPreviewBytes(context, aacFolder)
             val b64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
             val mime = "image/png"
@@ -112,7 +112,7 @@ class ControllerHtml {
         }*/
 
             val safeName = escapeHtml(displayName)
-            val safePath = escapeHtml(file.absolutePath)
+            val safePath = escapeHtml(aacFolder.pathRelativeToMainFolder)
 
             sb.append(
                 """
@@ -130,10 +130,10 @@ class ControllerHtml {
 
     private fun makeHtmlOfFiles(context: Context, parentFolder: AacFolder, sb: StringBuilder) {
         for (aacFile in parentFolder.fileList.sortedBy { it.nameWithExt.lowercase() }) {
-            val file = File(Util.rootDir, aacFile.pathRelativeToMainFolder)
-            if (!file.exists() || !file.isFile || file.nameWithoutExtension.startsWith("_.")) continue
+            if (aacFile.nameWithExt.substringBeforeLast('.', aacFile.nameWithExt).startsWith("_.")) continue
     
-            val (bytes, mime) = buildPreviewImageBytes(file)
+            val preview = buildPreviewImageBytes(context, aacFile) ?: continue
+            val (bytes, mime) = preview
             val b64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
 
             val displayName = aacFile.getDisplayName()
@@ -142,7 +142,7 @@ class ControllerHtml {
             }*/
 
             val safeName = escapeHtml(displayName)
-            val safePath = escapeHtml(file.absolutePath)
+            val safePath = escapeHtml(aacFile.pathRelativeToMainFolder)
 
             sb.append(
                 """
@@ -206,7 +206,7 @@ class ControllerHtml {
         val folderBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.folder)
             ?: error("Unable to decode drawable resource: ${R.drawable.folder}")
 
-        val previewBitmap = findFolderPreviewBitmap(aacFolder)
+        val previewBitmap = findFolderPreviewBitmap(context, aacFolder)
             ?: return bitmapToPngBytes(folderBitmap)
 
         val resultBitmap = folderBitmap.copy(Bitmap.Config.ARGB_8888, true)
@@ -219,33 +219,90 @@ class ControllerHtml {
         return bitmapToPngBytes(resultBitmap)
     }
 
-    private fun findFolderPreviewBitmap(aacFolder: AacFolder): Bitmap? {
-        val previewFile = aacFolder.fileList
-            .sortedBy { it.nameWithExt.lowercase() }
-            .firstNotNullOfOrNull { aacFile -> decodePreviewBitmap(aacFile) }
-        return previewFile
-    }
-
-    private fun decodePreviewBitmap(aacFile: AacFile): Bitmap? {
-        val file = File(Util.rootDir, aacFile.pathRelativeToMainFolder)
-        if (!file.exists() || !file.isFile || file.nameWithoutExtension.startsWith("_.")) return null
-        if (file.extension.lowercase() !in setOf("png", "jpg", "jpeg", "webp", "gif")) return null
-        return BitmapFactory.decodeFile(file.absolutePath)
-    }
-
-    private fun buildPreviewImageBytes(file: File): Pair<ByteArray, String> {
-        val originalMime = when (file.extension.lowercase()) {
+    private fun buildPreviewImageBytes(context: Context, aacFile: AacFile): Pair<ByteArray, String>? {
+        val originalMime = when (aacFile.nameWithExt.substringAfterLast('.', "").lowercase()) {
             "png" -> "image/png"
             "webp" -> "image/webp"
             "gif" -> "image/gif"
             else -> "image/jpeg"
         }
 
-        val bitmap = BitmapFactory.decodeFile(file.absolutePath)
-            ?: return file.readBytes() to originalMime
+        val bytes = readImageBytes(context, aacFile) ?: return null
+        val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            ?: return bytes to originalMime
 
         val scaledBitmap = scaleBitmapToMinSide(bitmap, minSidePx = 70)
         return bitmapToPngBytes(scaledBitmap) to "image/png"
+    }
+
+    private fun findFolderPreviewBitmap(context: Context, aacFolder: AacFolder): Bitmap? {
+        val previewFile = aacFolder.fileList
+            .sortedBy { it.nameWithExt.lowercase() }
+            .firstNotNullOfOrNull { aacFile -> decodePreviewBitmap(context, aacFile) }
+        return previewFile
+    }
+
+    private fun decodePreviewBitmap(context: Context, aacFile: AacFile): Bitmap? {
+        if (aacFile.nameWithExt.substringBeforeLast('.', aacFile.nameWithExt).startsWith("_.")) return null
+        if (aacFile.nameWithExt.substringAfterLast('.', "").lowercase() !in setOf("png", "jpg", "jpeg", "webp", "gif")) return null
+        val bytes = readImageBytes(context, aacFile) ?: return null
+        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+    }
+
+    private fun readImageBytes(context: Context, aacFile: AacFile): ByteArray? {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            readImageBytesFromMediaStore(context, aacFile)
+        } else {
+            val file = File(Util.rootDir, aacFile.pathRelativeToMainFolder)
+            if (!file.exists() || !file.isFile) return null
+            try {
+                file.readBytes()
+            } catch (t: Throwable) {
+                Util.printDebugLog("readImageBytes file read failed for ${file.absolutePath}: ${t.message}")
+                null
+            }
+        }
+    }
+
+    private fun readImageBytesFromMediaStore(context: Context, aacFile: AacFile): ByteArray? {
+        val relativePath = buildMediaRelativePath(aacFile.pathRelativeToMainFolder)
+        val displayName = aacFile.nameWithExt
+        val resolver = context.contentResolver
+        val projection = arrayOf(MediaStore.Images.Media._ID)
+        val selection =
+            "${MediaStore.Images.Media.RELATIVE_PATH}=? AND ${MediaStore.Images.Media.DISPLAY_NAME}=?"
+        val selectionArgs = arrayOf(relativePath, displayName)
+
+        return try {
+            resolver.query(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                projection,
+                selection,
+                selectionArgs,
+                null
+            )?.use { cursor ->
+                if (!cursor.moveToFirst()) return null
+                val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID))
+                val uri = android.content.ContentUris.withAppendedId(
+                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                    id
+                )
+                resolver.openInputStream(uri)?.use { it.readBytes() }
+            }
+        } catch (t: Throwable) {
+            Util.printDebugLog("readImageBytesFromMediaStore failed for $relativePath$displayName: ${t.message}")
+            null
+        }
+    }
+
+    private fun buildMediaRelativePath(pathRelativeToMainFolder: String): String {
+        val parentRel = pathRelativeToMainFolder.substringBeforeLast('/', "")
+        val normalizedParent = parentRel.trim('/').replace('\\', '/')
+        return if (normalizedParent.isBlank()) {
+            "${Environment.DIRECTORY_PICTURES}/${Util.mainFolderName}/"
+        } else {
+            "${Environment.DIRECTORY_PICTURES}/${Util.mainFolderName}/$normalizedParent/"
+        }
     }
 
     private fun scaleBitmapToMinSide(bitmap: Bitmap, minSidePx: Int): Bitmap {

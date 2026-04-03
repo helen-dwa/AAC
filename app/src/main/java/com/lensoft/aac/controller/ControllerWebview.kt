@@ -158,26 +158,18 @@ class ControllerWebview {
     private inner class WebAppBridge {
 
         @JavascriptInterface
-        fun onImageClick(absolutePath: String) {
+        fun onImageClick(path: String) {
             webView.post {
                 recordUserInput()
-                // absolutePath example:
-                // /storage/emulated/0/Pictures/MyAac/cat.png
-
-                val file = File(absolutePath)
-                if (file.exists()) {
-                    if(file.isFile) {
-                        // filename without extension (handles names like "my.photo.v1.png")
-                        val speakText = Util.getWordFromFile(file) //file.nameWithoutExtension
-                        ControllerTts.speak(speakText)
-                    }
-                    else { // go to folder
-                        if(controllerMain != null) {
-                            controllerMain.setCurrentlyShownFolder(absolutePath)
-                            displayPecs(controllerMain)
-                        }
-                    }
+                if (controllerMain.hasFolder(path)) {
+                    controllerMain.setCurrentlyShownFolder(path)
+                    displayPecs(controllerMain)
+                    return@post
                 }
+
+                val aacFile = controllerMain.getAacFile(path) ?: return@post
+                val speakText = Util.getWordFromFile(File(aacFile.nameWithExt))
+                ControllerTts.speak(speakText)
 
                 /*if (file.exists()) {
                     // ✅ You now have the exact image
