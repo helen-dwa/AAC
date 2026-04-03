@@ -20,7 +20,7 @@ class ControllerWebview {
         private const val PREF_EDITABLE_TEXT = "editable_text"
         private const val PREF_TIME_OF_LAST_INPUT = "time_of_last_input"
         private const val DEFAULT_CONTENT_ZOOM = 1f
-        private const val INPUT_STALE_TIMEOUT_MS = 20 * /*2 * 60 */ 1000L
+        private const val INPUT_STALE_TIMEOUT_MS = 2 * 60 * 1000L
     }
 
     private lateinit var webView: WebView
