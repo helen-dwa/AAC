@@ -17,7 +17,10 @@ class ControllerWebview {
     companion object {
         private const val PREFS_NAME = "webview_prefs"
         private const val PREF_CONTENT_ZOOM = "content_zoom"
+        private const val PREF_EDITABLE_TEXT = "editable_text"
+        private const val PREF_TIME_OF_LAST_INPUT = "time_of_last_input"
         private const val DEFAULT_CONTENT_ZOOM = 1f
+        private const val INPUT_STALE_TIMEOUT_MS = 20 * /*2 * 60 */ 1000L
     }
 
     private lateinit var webView: WebView
@@ -25,12 +28,15 @@ class ControllerWebview {
     private var contentZoom = 1f
     private var pageInitialized = false
     private var editableText = ""
+    private var timeOfLastInput = 0L
     private lateinit var scaleDetector: ScaleGestureDetector
     private lateinit var controllerMain: ControllerMain
 
     fun init(web_View: WebView) {
         webView = web_View
         contentZoom = loadSavedZoom()
+        editableText = loadSavedEditableText()
+        timeOfLastInput = loadSavedTimeOfLastInput()
         //if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.JELLY_BEAN) {
             // Old WebView often starts over-zoomed; match the density users get after manual pinch-out.
         //    contentZoom = contentZoom.coerceAtMost(0.85f)
@@ -41,6 +47,7 @@ class ControllerWebview {
                 pageInitialized = true
                 webView.postDelayed({
                     applyEditableText()
+                    applyKeyboardStatus("keyboard_off")
                     //Util.printDebugLog("applying zoom = " + contentZoom)
                     applyCardZoom(contentZoom)
                 }, 200)
@@ -109,6 +116,7 @@ class ControllerWebview {
 
     fun setEditableText(text: String) {
         editableText = text
+        saveEditableText(text)
         if (::webView.isInitialized && pageInitialized) {
             webView.post {
                 applyEditableText()
@@ -118,11 +126,40 @@ class ControllerWebview {
 
     fun getEditableText(): String = editableText
 
+    fun handleAppBecameActive() {
+        if (!::webView.isInitialized) return
+        if (!shouldResetForInactivity()) return
+        clearEditableTextAndDisableKeyboard()
+    }
+
+    private fun shouldResetForInactivity(): Boolean {
+        if (timeOfLastInput <= 0L) return false
+        return kotlin.math.abs(System.currentTimeMillis() - timeOfLastInput) > INPUT_STALE_TIMEOUT_MS
+    }
+
+    private fun clearEditableTextAndDisableKeyboard() {
+        editableText = ""
+        saveEditableText(editableText)
+        if (pageInitialized) {
+            webView.post {
+                applyEditableText()
+                applyKeyboardStatus("keyboard_off")
+                runJavascript("window.resetForInactivity && window.resetForInactivity();")
+            }
+        }
+    }
+
+    private fun recordUserInput(timestampMs: Long = System.currentTimeMillis()) {
+        timeOfLastInput = timestampMs
+        saveTimeOfLastInput(timestampMs)
+    }
+
     private inner class WebAppBridge {
 
         @JavascriptInterface
         fun onImageClick(absolutePath: String) {
             webView.post {
+                recordUserInput()
                 // absolutePath example:
                 // /storage/emulated/0/Pictures/MyAac/cat.png
 
@@ -160,6 +197,7 @@ class ControllerWebview {
         @JavascriptInterface
         fun onBackClick() {
             webView.post {
+                recordUserInput()
                 controllerMain.showParentOfCurrentlyShownFolder()
                 displayPecs(controllerMain)
             }
@@ -168,6 +206,7 @@ class ControllerWebview {
         @JavascriptInterface
         fun onTextFieldTapped(text: String) {
             webView.post {
+                recordUserInput()
                 val speakText = text.trim()
                 if (speakText.isNotEmpty()) {
                     ControllerTts.speak(speakText)
@@ -178,6 +217,13 @@ class ControllerWebview {
         @JavascriptInterface
         fun onTextFieldChanged(text: String) {
             editableText = text
+            saveEditableText(text)
+            recordUserInput()
+        }
+
+        @JavascriptInterface
+        fun onUserInput() {
+            recordUserInput()
         }
 
         @JavascriptInterface
@@ -213,33 +259,61 @@ class ControllerWebview {
             .apply()
     }
 
+    private fun loadSavedEditableText(): String {
+        return webView.context
+            .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(PREF_EDITABLE_TEXT, "")
+            .orEmpty()
+    }
+
+    private fun saveEditableText(text: String) {
+        webView.context
+            .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(PREF_EDITABLE_TEXT, text)
+            .apply()
+    }
+
+    private fun loadSavedTimeOfLastInput(): Long {
+        return webView.context
+            .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getLong(PREF_TIME_OF_LAST_INPUT, 0L)
+    }
+
+    private fun saveTimeOfLastInput(timestampMs: Long) {
+        webView.context
+            .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putLong(PREF_TIME_OF_LAST_INPUT, timestampMs)
+            .apply()
+    }
+
     private fun applyCardZoom(scale: Float) {
         val jsScale = String.format(Locale.US, "%.4f", scale)
-        val script = "window.applyAndroidZoomScale && window.applyAndroidZoomScale($jsScale);"
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-            webView.evaluateJavascript(script, null)
-        } else {
-            webView.loadUrl("javascript:$script")
-        }
+        runJavascript("window.applyAndroidZoomScale && window.applyAndroidZoomScale($jsScale);")
     }
 
     private fun updateBottomFrameContent(contentHtml: String) {
         val quotedHtml = JSONObject.quote(contentHtml)
-        val script = "window.setBottomFrameContent && window.setBottomFrameContent($quotedHtml);"
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-            webView.evaluateJavascript(script, null)
-        } else {
-            webView.loadUrl("javascript:$script")
-        }
+        runJavascript("window.setBottomFrameContent && window.setBottomFrameContent($quotedHtml);")
         webView.postDelayed({
             applyEditableText()
+            applyKeyboardStatus("keyboard_off")
             applyCardZoom(contentZoom)
         }, 50)
     }
 
     private fun applyEditableText() {
         val quotedText = JSONObject.quote(editableText)
-        val script = "window.setEditableText && window.setEditableText($quotedText);"
+        runJavascript("window.setEditableText && window.setEditableText($quotedText);")
+    }
+
+    private fun applyKeyboardStatus(status: String) {
+        val quotedStatus = JSONObject.quote(status)
+        runJavascript("window.setKeyboardStatus && window.setKeyboardStatus($quotedStatus);")
+    }
+
+    private fun runJavascript(script: String) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
             webView.evaluateJavascript(script, null)
         } else {

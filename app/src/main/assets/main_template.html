@@ -313,6 +313,7 @@
         }
 
         function onImgClicked(el) {
+          notifyUserInput();
           setKeyboardStatus('keyboard_off');
           var path = el.getAttribute('data-path') || '';
           var word = el.getAttribute('data-word') || '';
@@ -331,12 +332,14 @@
         }
 
         function onBackClicked() {
+          notifyUserInput();
           if (window.Android && Android.onBackClick) {
             Android.onBackClick();
           }
         }
 
         function clearEditableTextField() {
+          notifyUserInput();
           var textField = document.getElementById('editableTextField');
           if (textField) {
             textField.value = '';
@@ -351,6 +354,12 @@
           if (!textField) return;
           if (window.Android && Android.onTextFieldChanged) {
             Android.onTextFieldChanged(textField.value || '');
+          }
+        }
+
+        function notifyUserInput() {
+          if (window.Android && Android.onUserInput) {
+            Android.onUserInput();
           }
         }
 
@@ -377,6 +386,7 @@
           if (event) {
             event.stopPropagation();
           }
+          notifyUserInput();
           setKeyboardStatus('keyboard_off');
           speakEditableTextField();
         }
@@ -388,6 +398,7 @@
             event.preventDefault();
             event.stopPropagation();
           }
+          notifyUserInput();
           setKeyboardStatus('keyboard_off');
           speakEditableTextField();
         }
@@ -396,6 +407,11 @@
           var textField = document.getElementById('editableTextField');
           if (!textField) return;
           textField.value = text || '';
+        }
+
+        function resetForInactivity() {
+          setEditableText('');
+          setKeyboardStatus('keyboard_off');
         }
 
         function focusEditableTextFieldAtEnd() {
@@ -457,6 +473,7 @@
         }
 
         function toggleKeyboard() {
+          notifyUserInput();
           if (keyboardStatus === 'keyboard_off') {
             setKeyboardStatus('keyboard_on', { focusField: true });
             return;

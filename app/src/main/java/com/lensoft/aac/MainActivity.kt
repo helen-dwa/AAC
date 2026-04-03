@@ -62,7 +62,7 @@ class MainActivity : Activity() /*, TextToSpeech.OnInitListener*/ {
         val webView: WebView = findViewById(R.id.webView)
 
         controllerWebview.init(webView)
-        controllerWebview.setEditableText(savedInstanceState?.getString(STATE_EDITABLE_TEXT).orEmpty())
+        savedInstanceState?.getString(STATE_EDITABLE_TEXT)?.let(controllerWebview::setEditableText)
 
         ensureStoragePermissionAndCreateFolder()
     }
@@ -160,6 +160,11 @@ class MainActivity : Activity() /*, TextToSpeech.OnInitListener*/ {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putString(STATE_EDITABLE_TEXT, controllerWebview.getEditableText())
+    }
+
+    override fun onResume() {
+        super.onResume()
+        controllerWebview.handleAppBecameActive()
     }
 
     override fun onDestroy() {
