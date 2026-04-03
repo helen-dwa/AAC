@@ -227,6 +227,8 @@
     </style>
 
     <script>
+        var MIN_SCALE = {{MIN_SCALE}};
+        var MAX_SCALE = {{MAX_SCALE}};
         var currentCardZoomScale = 1;
         var keyboardStatus = 'keyboard_off';
         var suppressEditableTextFieldSpeakOnce = false;
@@ -263,8 +265,8 @@
 
         function applyAndroidZoomScale(scale) {
           if (!scale || scale <= 0) scale = 1;
-          if (scale < 0.5) scale = 0.5;
-          if (scale > 5) scale = 5;
+          if (scale < MIN_SCALE) scale = MIN_SCALE;
+          if (scale > MAX_SCALE) scale = MAX_SCALE;
           currentCardZoomScale = scale;
           applyTopFrameWidth();
           var baseCardWidth = 130;
@@ -317,7 +319,7 @@
           applyAndroidZoomScale(currentCardZoomScale || 1);
         }
 
-        function onImgClicked(el) {
+        function onCardClicked(el) {
           notifyUserInput();
           setKeyboardStatus('keyboard_off');
           var path = el.getAttribute('data-path') || '';

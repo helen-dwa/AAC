@@ -21,6 +21,8 @@ class ControllerWebview {
         private const val PREF_TIME_OF_LAST_INPUT = "time_of_last_input"
         private const val DEFAULT_CONTENT_ZOOM = 1f
         private const val LEGACY_DEFAULT_CONTENT_ZOOM = 0.85f
+        private const val MIN_SCALE = 0.3f
+        private const val MAX_SCALE = 5f
         private const val INPUT_STALE_TIMEOUT_MS = 2 * 60 * 1000L
     }
 
@@ -76,7 +78,7 @@ class ControllerWebview {
                 val factor = detector.scaleFactor
                 if (!factor.isFinite() || factor <= 0f) return false
 
-                contentZoom = (contentZoom * factor).coerceIn(0.5f, 5f)
+                contentZoom = (contentZoom * factor).coerceIn(MIN_SCALE, MAX_SCALE)
                 applyCardZoom(contentZoom)
                 return true
             }
@@ -228,8 +230,8 @@ class ControllerWebview {
         fun onViewportScaleChanged(scale: Float) {
             val safeScale = when {
                 !scale.isFinite() || scale <= 0f -> 1f
-                scale < 0.5f -> 0.5f
-                scale > 5f -> 5f
+                scale < MIN_SCALE -> MIN_SCALE
+                scale > MAX_SCALE -> MAX_SCALE
                 else -> scale
             }
             if (kotlin.math.abs(safeScale - lastViewportScale) < 0.01f) return
@@ -251,14 +253,14 @@ class ControllerWebview {
             DEFAULT_CONTENT_ZOOM
         }
         val savedScale = prefs.getFloat(PREF_CONTENT_ZOOM, defaultScale)
-        return savedScale.coerceIn(0.5f, 5f)
+        return savedScale.coerceIn(MIN_SCALE, MAX_SCALE)
     }
 
     private fun saveZoom(scale: Float) {
         webView.context
             .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
-            .putFloat(PREF_CONTENT_ZOOM, scale.coerceIn(0.5f, 5f))
+            .putFloat(PREF_CONTENT_ZOOM, scale.coerceIn(MIN_SCALE, MAX_SCALE))
             .apply()
     }
 

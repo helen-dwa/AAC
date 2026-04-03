@@ -18,6 +18,11 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 
 class ControllerHtml {
+    companion object {
+        private const val MIN_SCALE = 0.3f
+        private const val MAX_SCALE = 5f
+    }
+
     fun buildHtmlFromTemplate(context: Context, aacFolder: AacFolder): String {
         val template = readAssetText(context, "main_template.html")
 
@@ -47,6 +52,8 @@ class ControllerHtml {
             .replace("{{TOP_FRAME_MIN_INPUT_WIDTH}}", topFrameMetrics.minInputWidthPx.toString())
             .replace("{{KEYBOARD_OFF_ICON}}", keyboardOffIcon)
             .replace("{{KEYBOARD_ON_ICON}}", keyboardOnIcon)
+            .replace("{{MIN_SCALE}}", MIN_SCALE.toString())
+            .replace("{{MAX_SCALE}}", MAX_SCALE.toString())
             .replace("{{CONTENT}}", content)
     }
 
@@ -116,11 +123,11 @@ class ControllerHtml {
 
             sb.append(
                 """
-                <div class="cardfolder">
+                <div class="cardfolder"
+                     data-path="$safePath"
+                     onclick="onCardClicked(this)">
                   <img class="thumb"
-                       src="data:$mime;base64,$b64"
-                       data-path="$safePath"
-                       onclick="onImgClicked(this)" />
+                       src="data:$mime;base64,$b64" />
                   <div class="name">$safeName</div>
                 </div>
                 """.trimIndent()
@@ -146,12 +153,12 @@ class ControllerHtml {
 
             sb.append(
                 """
-                <div class="card">
+                <div class="card"
+                     data-path="$safePath"
+                     data-word="$safeName"
+                     onclick="onCardClicked(this)">
                   <img class="thumb"
-                       src="data:$mime;base64,$b64"
-                       data-path="$safePath"
-                       data-word="$safeName"
-                       onclick="onImgClicked(this)" />
+                       src="data:$mime;base64,$b64" />
                   <div class="name">$safeName</div>
                 </div>
                 """.trimIndent()
