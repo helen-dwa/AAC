@@ -35,7 +35,8 @@ class ControllerWebview {
     fun init(web_View: WebView) {
         webView = web_View
         contentZoom = loadSavedZoom()
-        editableText = loadSavedEditableText()
+        editableText = ""
+        saveEditableText(editableText)
         timeOfLastInput = loadSavedTimeOfLastInput()
         //if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.JELLY_BEAN) {
             // Old WebView often starts over-zoomed; match the density users get after manual pinch-out.

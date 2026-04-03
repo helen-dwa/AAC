@@ -15,6 +15,10 @@ class ControllerMain(private val context: Context) {
         ControllerFiles(context).createFolderIfNotExist(null, "Lensoft_AAC")
     }
 
+    fun seedExampleAssetsIfNeeded() {
+        ControllerFiles(context).seedExampleAssetsIfNeeded()
+    }
+
     //'Pictures/Lensoft_AAC/'
     var mainFolder: AacFolder = AacFolder("")
     var currentlyShownFolder = mainFolder

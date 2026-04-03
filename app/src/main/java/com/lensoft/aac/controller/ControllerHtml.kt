@@ -142,9 +142,10 @@ class ControllerHtml {
                 else -> "image/jpeg"
             }
 
-            val displayName = file.nameWithoutExtension.ifEmpty {
+            val displayName = aacFile.getDisplayName()
+            /*val displayName = file.nameWithoutExtension.ifEmpty {
                 aacFile.nameWithExt.substringBeforeLast('.', aacFile.nameWithExt)
-            }
+            }*/
 
             val safeName = escapeHtml(displayName)
             val safePath = escapeHtml(file.absolutePath)

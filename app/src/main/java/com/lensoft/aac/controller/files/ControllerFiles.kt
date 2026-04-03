@@ -2,14 +2,28 @@ package com.lensoft.aac.controller.files
 
 import android.content.ContentValues
 import android.content.Context
+import android.content.res.AssetManager
+import android.media.MediaScannerConnection
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import androidx.annotation.RequiresApi
 import com.lensoft.aac.controller.Util
+import java.io.IOException
+import java.io.InputStream
 import java.io.File
 
 class ControllerFiles(private val context: Context) {
+    fun seedExampleAssetsIfNeeded() {
+        val mainFolder = Util.rootDir
+        if (!shouldSeedExampleAssets(mainFolder)) return
+        copyAssetsDirectoryToPicturesFolder(
+            assetPath = "pecs_example",
+            destinationFolder = mainFolder,
+            relativePathFromPictures = "${Environment.DIRECTORY_PICTURES}/${Util.mainFolderName}/"
+        )
+    }
+
     fun createFolderIfNotExist(parentPath: String?, folderName: String) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             // Android 10+ (Scoped Storage)
@@ -32,6 +46,132 @@ class ControllerFiles(private val context: Context) {
     }
 
     // ===== private ======
+    private fun shouldSeedExampleAssets(mainFolder: File): Boolean {
+        val entries = mainFolder.listFiles()?.filterNot { it.name.startsWith(".") }.orEmpty()
+        if (entries.isEmpty()) return true
+
+        val nonStubEntries = entries.filterNot { it.name.startsWith("000000") }
+        return nonStubEntries.isEmpty()
+    }
+
+    private fun copyAssetsDirectoryToPicturesFolder(
+        assetPath: String,
+        destinationFolder: File,
+        relativePathFromPictures: String
+    ) {
+        destinationFolder.mkdirs()
+        val assetManager = context.assets
+        val copiedPaths = mutableListOf<String>()
+        copyAssetsRecursive(
+            assetManager = assetManager,
+            assetPath = assetPath,
+            destinationFolder = destinationFolder,
+            relativePathFromPictures = relativePathFromPictures,
+            copiedPaths = copiedPaths
+        )
+
+        if (copiedPaths.isNotEmpty() && Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            MediaScannerConnection.scanFile(context, copiedPaths.toTypedArray(), null, null)
+        }
+    }
+
+    private fun copyAssetsRecursive(
+        assetManager: AssetManager,
+        assetPath: String,
+        destinationFolder: File,
+        relativePathFromPictures: String,
+        copiedPaths: MutableList<String>
+    ) {
+        val children = assetManager.list(assetPath).orEmpty()
+        if (children.isEmpty()) {
+            copySingleAsset(assetManager, assetPath, destinationFolder, relativePathFromPictures, copiedPaths)
+            return
+        }
+
+        for (child in children) {
+            val childAssetPath = if (assetPath.isEmpty()) child else "$assetPath/$child"
+            val childDestination = File(destinationFolder, child)
+            val childRelativePath = relativePathFromPictures + child + "/"
+            val grandChildren = assetManager.list(childAssetPath).orEmpty()
+
+            if (grandChildren.isEmpty()) {
+                copySingleAsset(assetManager, childAssetPath, destinationFolder, relativePathFromPictures, copiedPaths)
+            } else {
+                childDestination.mkdirs()
+                copyAssetsRecursive(
+                    assetManager = assetManager,
+                    assetPath = childAssetPath,
+                    destinationFolder = childDestination,
+                    relativePathFromPictures = childRelativePath,
+                    copiedPaths = copiedPaths
+                )
+            }
+        }
+    }
+
+    private fun copySingleAsset(
+        assetManager: AssetManager,
+        assetPath: String,
+        destinationFolder: File,
+        relativePathFromPictures: String,
+        copiedPaths: MutableList<String>
+    ) {
+        val fileName = assetPath.substringAfterLast('/')
+        val destinationFile = File(destinationFolder, fileName)
+        if (destinationFile.exists()) return
+
+        assetManager.open(assetPath).use { inputStream ->
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                copyAssetAndroid10Plus(inputStream, fileName, relativePathFromPictures)
+            } else {
+                destinationFolder.mkdirs()
+                destinationFile.outputStream().use { outputStream ->
+                    inputStream.copyTo(outputStream)
+                }
+                copiedPaths.add(destinationFile.absolutePath)
+            }
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.Q)
+    private fun copyAssetAndroid10Plus(
+        inputStream: InputStream,
+        displayName: String,
+        relativePath: String
+    ) {
+        val values = ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, displayName)
+            put(MediaStore.Images.Media.MIME_TYPE, guessMimeType(displayName))
+            put(MediaStore.Images.Media.RELATIVE_PATH, relativePath)
+            put(MediaStore.Images.Media.IS_PENDING, 1)
+        }
+
+        val resolver = context.contentResolver
+        val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values) ?: return
+
+        try {
+            resolver.openOutputStream(uri, "w")?.use { outputStream ->
+                inputStream.copyTo(outputStream)
+            } ?: throw IOException("Unable to open output stream for $displayName")
+
+            resolver.update(uri, ContentValues().apply {
+                put(MediaStore.Images.Media.IS_PENDING, 0)
+            }, null, null)
+        } catch (_: Throwable) {
+            resolver.delete(uri, null, null)
+        }
+    }
+
+    private fun guessMimeType(fileName: String): String {
+        return when (fileName.substringAfterLast('.', "").lowercase()) {
+            "png" -> "image/png"
+            "webp" -> "image/webp"
+            "gif" -> "image/gif"
+            "jpg", "jpeg" -> "image/jpeg"
+            else -> "application/octet-stream"
+        }
+    }
+
     @RequiresApi(Build.VERSION_CODES.Q)
     private fun createFolderIfNotExistAndroid10Plus(
         parentPath: String,
