@@ -14,5 +14,15 @@ class Util {
         fun printDebugLog(s: String) {
             android.util.Log.e("lensoft_aac", s)
         }
+
+        fun getWordFromFile(file: File): String {
+            val fileName = file.name
+            val sanitizedName = if (fileName.startsWith("[")) {
+                fileName.replaceFirst(Regex("^\\[[^\\]]*\\]"), "")
+            } else {
+                fileName
+            }
+            return File(sanitizedName).nameWithoutExtension
+        }
     }
 }

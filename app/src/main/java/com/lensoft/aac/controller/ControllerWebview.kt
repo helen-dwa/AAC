@@ -168,7 +168,7 @@ class ControllerWebview {
                 if (file.exists()) {
                     if(file.isFile) {
                         // filename without extension (handles names like "my.photo.v1.png")
-                        val speakText = file.nameWithoutExtension
+                        val speakText = Util.getWordFromFile(file) //file.nameWithoutExtension
                         ControllerTts.speak(speakText)
                     }
                     else { // go to folder

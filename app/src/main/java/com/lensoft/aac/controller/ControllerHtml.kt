@@ -132,15 +132,9 @@ class ControllerHtml {
         for (aacFile in parentFolder.fileList.sortedBy { it.nameWithExt.lowercase() }) {
             val file = File(Util.rootDir, aacFile.pathRelativeToMainFolder)
             if (!file.exists() || !file.isFile || file.nameWithoutExtension.startsWith("_.")) continue
-
-            val bytes = file.readBytes()
+    
+            val (bytes, mime) = buildPreviewImageBytes(file)
             val b64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
-            val mime = when (file.extension.lowercase()) {
-                "png" -> "image/png"
-                "webp" -> "image/webp"
-                "gif" -> "image/gif"
-                else -> "image/jpeg"
-            }
 
             val displayName = aacFile.getDisplayName()
             /*val displayName = file.nameWithoutExtension.ifEmpty {
@@ -237,6 +231,32 @@ class ControllerHtml {
         if (!file.exists() || !file.isFile || file.nameWithoutExtension.startsWith("_.")) return null
         if (file.extension.lowercase() !in setOf("png", "jpg", "jpeg", "webp", "gif")) return null
         return BitmapFactory.decodeFile(file.absolutePath)
+    }
+
+    private fun buildPreviewImageBytes(file: File): Pair<ByteArray, String> {
+        val originalMime = when (file.extension.lowercase()) {
+            "png" -> "image/png"
+            "webp" -> "image/webp"
+            "gif" -> "image/gif"
+            else -> "image/jpeg"
+        }
+
+        val bitmap = BitmapFactory.decodeFile(file.absolutePath)
+            ?: return file.readBytes() to originalMime
+
+        val scaledBitmap = scaleBitmapToMinSide(bitmap, minSidePx = 70)
+        return bitmapToPngBytes(scaledBitmap) to "image/png"
+    }
+
+    private fun scaleBitmapToMinSide(bitmap: Bitmap, minSidePx: Int): Bitmap {
+        val currentMinSide = minOf(bitmap.width, bitmap.height)
+        if (currentMinSide <= minSidePx || currentMinSide <= 0) return bitmap
+
+        val scale = minSidePx.toFloat() / currentMinSide.toFloat()
+        val targetWidth = kotlin.math.max(1, kotlin.math.round(bitmap.width * scale).toInt())
+        val targetHeight = kotlin.math.max(1, kotlin.math.round(bitmap.height * scale).toInt())
+
+        return Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
     }
 
     private fun bitmapToPngBytes(bitmap: Bitmap): ByteArray {
