@@ -43,15 +43,8 @@ class MainActivity : Activity() /*, TextToSpeech.OnInitListener*/ {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        WindowCompat.setDecorFitsSystemWindows(window, false)
         setContentView(R.layout.activity_main)
-
-        val root = findViewById<FrameLayout>(R.id.root)
-        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            view.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
-        }
+        configureSystemBars()
 
         controllerTts.init(this)
 
@@ -60,6 +53,24 @@ class MainActivity : Activity() /*, TextToSpeech.OnInitListener*/ {
         controllerWebview.init(webView)
 
         ensureStoragePermissionAndCreateFolder()
+    }
+
+    private fun configureSystemBars() {
+        val root = findViewById<FrameLayout>(R.id.root)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+            ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
+                val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+                view.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+                insets
+            }
+            ViewCompat.requestApplyInsets(root)
+        } else {
+            WindowCompat.setDecorFitsSystemWindows(window, true)
+            ViewCompat.setOnApplyWindowInsetsListener(root, null)
+            root.setPadding(0, 0, 0, 0)
+        }
     }
 
     /*override*/ /*fun onCreate2(savedInstanceState: Bundle?) {

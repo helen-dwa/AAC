@@ -4,10 +4,10 @@
     <selectionStates>
       <SelectionState runConfigName="app">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2026-04-03T01:54:46.415847300Z">
+        <DropdownSelection timestamp="2026-04-03T03:03:50.792339300Z">
           <Target type="DEFAULT_BOOT">
             <handle>
-              <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\elena\.android\avd\10.1_WXGA_Tablet.avd" />
+              <DeviceId pluginId="PhysicalDevice" identifier="serial=de9247da" />
             </handle>
           </Target>
         </DropdownSelection>
