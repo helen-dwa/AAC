@@ -20,6 +20,7 @@ class ControllerWebview {
         private const val PREF_EDITABLE_TEXT = "editable_text"
         private const val PREF_TIME_OF_LAST_INPUT = "time_of_last_input"
         private const val DEFAULT_CONTENT_ZOOM = 1f
+        private const val LEGACY_DEFAULT_CONTENT_ZOOM = 0.85f
         private const val INPUT_STALE_TIMEOUT_MS = 2 * 60 * 1000L
     }
 
@@ -38,10 +39,10 @@ class ControllerWebview {
         editableText = ""
         saveEditableText(editableText)
         timeOfLastInput = loadSavedTimeOfLastInput()
-        //if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.JELLY_BEAN) {
-            // Old WebView often starts over-zoomed; match the density users get after manual pinch-out.
-        //    contentZoom = contentZoom.coerceAtMost(0.85f)
-        //}
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.JELLY_BEAN_MR2) {
+            // Older WebView builds can render the page initially over-zoomed.
+            contentZoom = contentZoom.coerceAtMost(LEGACY_DEFAULT_CONTENT_ZOOM)
+        }
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
@@ -64,6 +65,10 @@ class ControllerWebview {
         webView.settings.useWideViewPort = true
         webView.settings.loadWithOverviewMode = false
         webView.settings.layoutAlgorithm = WebSettings.LayoutAlgorithm.NORMAL
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.JELLY_BEAN_MR2) {
+            webView.settings.loadWithOverviewMode = true
+            webView.setInitialScale(100)
+        }
         webView.setLayerType(View.LAYER_TYPE_SOFTWARE, null)
 
         scaleDetector = ScaleGestureDetector(webView.context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
@@ -240,7 +245,12 @@ class ControllerWebview {
 
     private fun loadSavedZoom(): Float {
         val prefs = webView.context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val savedScale = prefs.getFloat(PREF_CONTENT_ZOOM, DEFAULT_CONTENT_ZOOM)
+        val defaultScale = if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.JELLY_BEAN_MR2) {
+            LEGACY_DEFAULT_CONTENT_ZOOM
+        } else {
+            DEFAULT_CONTENT_ZOOM
+        }
+        val savedScale = prefs.getFloat(PREF_CONTENT_ZOOM, defaultScale)
         return savedScale.coerceIn(0.5f, 5f)
     }
 
