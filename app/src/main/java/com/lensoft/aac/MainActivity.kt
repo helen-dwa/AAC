@@ -2,6 +2,7 @@ package com.lensoft.aac
 
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -15,7 +16,6 @@ import com.lensoft.aac.controller.ControllerHtml
 import com.lensoft.aac.controller.ControllerMain
 
 import android.webkit.JavascriptInterface
-import android.widget.Toast
 import java.io.File
 
 import android.content.Intent
@@ -151,8 +151,18 @@ class MainActivity : Activity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
 
-        if (requestCode == REQ_STORAGE && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
-            onPermissionGranted()
+        if (requestCode == REQ_STORAGE) {
+            if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
+                onPermissionGranted()
+            } else {
+                AlertDialog.Builder(this)
+                    .setMessage("The app can't work without granting permission")
+                    .setPositiveButton("OK") { _, _ ->
+                        finish()
+                    }
+                    .setCancelable(false)
+                    .show()
+            }
         }
     }
 
