@@ -161,7 +161,7 @@ class MainActivity : Activity() {
         controllerMain.seedExampleAssetsIfNeeded()
         controllerMain.readMainFolder()
         //controllerMain.logMainFolder()
-        controllerWebview.displayPecs(controllerMain)
+        controllerWebview.showStartupPage(controllerMain)
     }
 
     override fun onResume() {

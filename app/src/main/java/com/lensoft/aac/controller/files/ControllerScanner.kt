@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Environment
 import android.os.Build
 import android.provider.MediaStore
+import androidx.annotation.RequiresApi
 import com.lensoft.aac.controller.Util
 import com.lensoft.aac.model.AacFile
 import com.lensoft.aac.model.AacFolder
@@ -55,12 +56,8 @@ class ControllerScanner(private val context: Context) {
             return parentFolder
         }
 
-        Util.printDebugLog("ControllerScanner.scanFolder listing ${dir.absolutePath}")
         val children = try {
             val listed = dir.listFiles()
-            Util.printDebugLog(
-                "ControllerScanner.scanFolder listFiles result for ${dir.absolutePath}: ${listed?.size ?: "null"} entries"
-            )
             listed
         } catch (t: Throwable) {
             Util.printDebugLog("ControllerScanner.scanFolder failed for ${dir.absolutePath}: ${t.message}")
@@ -74,7 +71,6 @@ class ControllerScanner(private val context: Context) {
 
         // Optional: stable ordering (folders first, then files, case-insensitive)
         val sorted = children.sortedWith(compareBy<File> { !it.isDirectory }.thenBy { it.name.lowercase() })
-        Util.printDebugLog("ControllerScanner.scanFolder sorted ${sorted.size} entries for ${dir.absolutePath}")
 
         for (f in sorted) {
             // Skip hidden entries (optional)
@@ -99,6 +95,7 @@ class ControllerScanner(private val context: Context) {
         return parentFolder
     }
 
+    @RequiresApi(Build.VERSION_CODES.JELLY_BEAN)
     private fun scanFolderWithMediaStore(parentFolder: AacFolder): AacFolder {
         parentFolder.fileList.clear()
         parentFolder.folderList.clear()
@@ -112,8 +109,6 @@ class ControllerScanner(private val context: Context) {
         val selection = "${MediaStore.Images.Media.RELATIVE_PATH} LIKE ?"
         val selectionArgs = arrayOf("$rootRelativePath%")
         val sortOrder = "${MediaStore.Images.Media.RELATIVE_PATH} ASC, ${MediaStore.Images.Media.DISPLAY_NAME} ASC"
-
-        Util.printDebugLog("ControllerScanner.scanFolder querying MediaStore under $rootRelativePath")
 
         try {
             resolver.query(
@@ -151,9 +146,6 @@ class ControllerScanner(private val context: Context) {
         }
 
         sortFolderTree(parentFolder)
-        Util.printDebugLog(
-            "ControllerScanner.scanFolder MediaStore built root with ${parentFolder.folderList.size} folders and ${parentFolder.fileList.size} files"
-        )
         return parentFolder
     }
 

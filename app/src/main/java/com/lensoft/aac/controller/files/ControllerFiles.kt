@@ -180,6 +180,7 @@ class ControllerFiles(private val context: Context) {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.JELLY_BEAN)
     private fun shouldSeedExampleAssetsModern(): Boolean {
         val projection = arrayOf(
             MediaStore.Images.Media.DISPLAY_NAME,
@@ -208,6 +209,7 @@ class ControllerFiles(private val context: Context) {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.JELLY_BEAN)
     private fun mediaEntryExists(relativePath: String, displayName: String): Boolean {
         val projection = arrayOf(MediaStore.Images.Media._ID)
         val selection =
@@ -240,12 +242,6 @@ class ControllerFiles(private val context: Context) {
         val base = if (parentPath.endsWith("/")) parentPath else "$parentPath/"
         val relativePath = base + folderName.trim('/') + "/"
 
-        Util.printDebugLog( "createFolderIfNotExistAndroid10Plus()")
-        Util.printDebugLog("parentPath='$parentPath'")
-        Util.printDebugLog( "folderName='$folderName'")
-        Util.printDebugLog( "base='$base'")
-        Util.printDebugLog( "relativePath='$relativePath'")
-
         // Sanity check: RELATIVE_PATH must not start with "/" and should end with "/"
         if (relativePath.startsWith("/")) {
             Util.printDebugLog( "❌ INVALID relativePath starts with '/': '$relativePath'")
@@ -275,16 +271,14 @@ class ControllerFiles(private val context: Context) {
                 selectionArgs,
                 null
             )?.use { cursor ->
-                Util.printDebugLog( "query count=${cursor.count} for RELATIVE_PATH='$relativePath'")
                 if (cursor.moveToFirst()) {
                     val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID))
                     val name = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME))
                     val rp = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Images.Media.RELATIVE_PATH))
-                    Util.printDebugLog( "✅ Folder seems to exist (found item): id=$id name='$name' relativePath='$rp'")
                     return
                 }
             } ?: run {
-                Util.printDebugLog( "query returned null cursor (provider issue?)")
+                //Util.printDebugLog( "query returned null cursor (provider issue?)")
             }
         } catch (t: Throwable) {
             Util.printDebugLog( "❌ query failed: ${t.javaClass.simpleName}: ${t.message}")
@@ -300,7 +294,7 @@ class ControllerFiles(private val context: Context) {
             put(MediaStore.Images.Media.IS_PENDING, 1)
         }
 
-        Util.printDebugLog( "inserting dummy: displayName='$displayName', RELATIVE_PATH='$relativePath'")
+        //Util.printDebugLog( "inserting dummy: displayName='$displayName', RELATIVE_PATH='$relativePath'")
 
         val uri = try {
             resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
@@ -314,14 +308,11 @@ class ControllerFiles(private val context: Context) {
             return
         }
 
-        Util.printDebugLog( "✅ insert ok uri=$uri")
-
         // Optional: actually open the item once (some devices behave better if you write 0 bytes)
         try {
             resolver.openOutputStream(uri, "w")?.use { os ->
                 // write nothing; just open/close
             }
-            Util.printDebugLog("openOutputStream ok (0 bytes)")
         } catch (t: Throwable) {
             Util.printDebugLog( "❌ openOutputStream failed: ${t.javaClass.simpleName}: ${t.message}")
         }
@@ -331,7 +322,6 @@ class ControllerFiles(private val context: Context) {
             val updated = resolver.update(uri, ContentValues().apply {
                 put(MediaStore.Images.Media.IS_PENDING, 0)
             }, null, null)
-            Util.printDebugLog("update IS_PENDING=0 -> updatedRows=$updated")
         } catch (t: Throwable) {
             Util.printDebugLog( "❌ update failed: ${t.javaClass.simpleName}: ${t.message}")
         }

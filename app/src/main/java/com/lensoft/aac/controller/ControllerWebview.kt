@@ -19,11 +19,18 @@ class ControllerWebview {
         private const val PREF_CONTENT_ZOOM = "content_zoom"
         private const val PREF_EDITABLE_TEXT = "editable_text"
         private const val PREF_TIME_OF_LAST_INPUT = "time_of_last_input"
+        private const val PREF_SHOW_GUIDE = "showGuide"
         private const val DEFAULT_CONTENT_ZOOM = 1f
         private const val LEGACY_DEFAULT_CONTENT_ZOOM = 0.85f
         private const val MIN_SCALE = 0.3f
         private const val MAX_SCALE = 5f
         private const val INPUT_STALE_TIMEOUT_MS = 2 * 60 * 1000L
+        private const val GUIDE_ASSET_URL = "file:///android_asset/guide.html"
+    }
+
+    private enum class PageType {
+        GUIDE,
+        MAIN
     }
 
     private lateinit var webView: WebView
@@ -32,6 +39,7 @@ class ControllerWebview {
     private var pageInitialized = false
     private var editableText = ""
     private var timeOfLastInput = 0L
+    private var currentPageType = PageType.MAIN
     private lateinit var scaleDetector: ScaleGestureDetector
     private lateinit var controllerMain: ControllerMain
 
@@ -102,24 +110,23 @@ class ControllerWebview {
     }
 
     fun displayPecs(controllerMain: ControllerMain) {
-        //val images = controllerMain.getImagesListSorted()
-        //val html = ControllerHtml().buildHtmlInline(images)
         this.controllerMain = controllerMain
-        if (!pageInitialized) {
-            val html = controllerMain.makeHtml()
-            //ControllerHtml().buildHtmlInline(controllerMain.mainFolder)
-            webView.loadDataWithBaseURL(
-                /* baseUrl = */ "https://local/",
-                /* data = */ html,
-                /* mimeType = */ "text/html",
-                /* encoding = */ "utf-8",
-                /* historyUrl = */ null
-            )
+        if (!pageInitialized || currentPageType != PageType.MAIN) {
+            loadMainPage()
             return
         }
 
         val contentHtml = ControllerHtml().buildGalleryContentHtml(webView.context, controllerMain.currentlyShownFolder)
         updateBottomFrameContent(contentHtml)
+    }
+
+    fun showStartupPage(controllerMain: ControllerMain) {
+        this.controllerMain = controllerMain
+        if (loadShowGuidePreference()) {
+            loadGuidePage()
+        } else {
+            loadMainPage()
+        }
     }
 
     fun setEditableText(text: String) {
@@ -243,6 +250,25 @@ class ControllerWebview {
                 applyCardZoom(safeScale)
             }
         }
+
+        @JavascriptInterface
+        fun getShowGuide(): Boolean {
+            return loadShowGuidePreference()
+        }
+
+        @JavascriptInterface
+        fun setShowGuide(showGuide: Boolean) {
+            saveShowGuidePreference(showGuide)
+        }
+
+        @JavascriptInterface
+        fun onGuideFinished() {
+            webView.post {
+                if (::controllerMain.isInitialized) {
+                    loadMainPage()
+                }
+            }
+        }
     }
 
     private fun loadSavedZoom(): Float {
@@ -291,6 +317,39 @@ class ControllerWebview {
             .edit()
             .putLong(PREF_TIME_OF_LAST_INPUT, timestampMs)
             .apply()
+    }
+
+    private fun loadShowGuidePreference(): Boolean {
+        return webView.context
+            .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(PREF_SHOW_GUIDE, true)
+    }
+
+    private fun saveShowGuidePreference(showGuide: Boolean) {
+        webView.context
+            .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(PREF_SHOW_GUIDE, showGuide)
+            .apply()
+    }
+
+    private fun loadGuidePage() {
+        pageInitialized = false
+        currentPageType = PageType.GUIDE
+        webView.loadUrl(GUIDE_ASSET_URL)
+    }
+
+    private fun loadMainPage() {
+        val html = controllerMain.makeHtml()
+        pageInitialized = false
+        currentPageType = PageType.MAIN
+        webView.loadDataWithBaseURL(
+            /* baseUrl = */ "https://local/",
+            /* data = */ html,
+            /* mimeType = */ "text/html",
+            /* encoding = */ "utf-8",
+            /* historyUrl = */ null
+        )
     }
 
     private fun applyCardZoom(scale: Float) {
