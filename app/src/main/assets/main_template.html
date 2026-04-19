@@ -347,6 +347,7 @@
 
         function clearEditableTextField() {
           notifyUserInput();
+          setKeyboardStatus('keyboard_off');
           var textField = document.getElementById('editableTextField');
           if (textField) {
             textField.value = '';

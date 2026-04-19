@@ -87,11 +87,12 @@ class ControllerHtml {
         for (folder in mainFolder.folderList) {
             val folderName = File(folder.pathRelativeToMainFolder).name
                 .ifEmpty { folder.pathRelativeToMainFolder }
+            val displayName = folder.getDisplayName()
 
             sb.append(
                 """
             <div class="section">
-              <div class="folder-title">${escapeHtml(folderName)}</div>
+              <div class="folder-title">${escapeHtml(displayName)}</div>
               <div class="row">
             """.trimIndent()
             )
@@ -216,7 +217,8 @@ class ControllerHtml {
         val previewBitmap = findFolderPreviewBitmap(context, aacFolder)
             ?: return bitmapToPngBytes(folderBitmap)
 
-        val resultBitmap = folderBitmap.copy(Bitmap.Config.ARGB_8888, true)
+        val bitmap = folderBitmap.copy(Bitmap.Config.ARGB_8888, true)
+        val resultBitmap = scaleBitmapToMinSide(bitmap, minSidePx = 100)
         val overlaySizePx = (resultBitmap.height * 0.5f).toInt()
         val left = ((resultBitmap.width - overlaySizePx) / 2f).toInt()
         val top = ((resultBitmap.height - overlaySizePx) / 2f).toInt()

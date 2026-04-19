@@ -1,5 +1,6 @@
 package com.lensoft.aac.model
 
+import com.lensoft.aac.controller.Util
 import java.io.File
 
 class AacFolder(
@@ -10,6 +11,7 @@ class AacFolder(
 
     fun getDisplayName() : String {
         val normalizedPath = pathRelativeToMainFolder.trimEnd('/', '\\')
-        return File(normalizedPath).name.ifEmpty { normalizedPath }
+        return Util.getWordFromFile(File(normalizedPath))
+        //return File(normalizedPath).name.ifEmpty { normalizedPath }
     }
 }
